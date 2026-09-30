@@ -40,6 +40,8 @@ button, select { cursor: pointer; }
 .brand-mark::before { content: ""; position: absolute; left: -2px; right: -2px; height: 2px; background: var(--text); }
 .brand-mark i { width: 9px; height: 9px; border: 2px solid var(--text); border-radius: 50%; background: var(--surface); z-index: 1; }
 .catalog-actions { display: flex; align-items: center; gap: 14px; }
+.header-link { color: var(--text); font-size: 13px; font-weight: 500; text-decoration: none; white-space: nowrap; }
+.header-link:hover { text-decoration: underline; }
 .header-count { color: var(--muted); font-size: 14px; font-variant-numeric: tabular-nums; }
 .last-sync { padding-left: 14px; border-left: 1px solid var(--border); color: var(--muted); font-size: 12px; white-space: nowrap; }
 .sync-button { height: 34px; padding: 0 12px; display: inline-flex; align-items: center; gap: 7px; border: 1px solid var(--border); border-radius: 6px; color: var(--text); background: var(--surface); font-size: 13px; }

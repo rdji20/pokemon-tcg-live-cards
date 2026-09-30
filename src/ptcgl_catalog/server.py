@@ -13,7 +13,13 @@ from urllib.parse import urlparse
 import psycopg
 
 from .catalog import CatalogError, build_catalog
-from .database import catalog_status, database_url, import_catalog, list_sets, search_cards
+from .database import (
+    catalog_status, database_url, get_card_effects, get_ruleset,
+    import_catalog, list_sets, search_cards,
+)
+from .decks import create_deck, export_deck, get_deck, list_decks, validate_payload
+from .optimization import optimize_deck
+from .simulation import simulate_match
 
 
 class CatalogHTTPServer(ThreadingHTTPServer):
@@ -66,6 +72,15 @@ class CatalogRequestHandler(SimpleHTTPRequestHandler):
         with path.open("r", encoding="utf-8") as handle:
             return json.load(handle)
 
+    def _request_json(self) -> dict[str, Any]:
+        length = int(self.headers.get("Content-Length", "0"))
+        if length <= 0 or length > 1_000_000:
+            raise ValueError("Request body must be JSON and smaller than 1 MB")
+        payload = json.loads(self.rfile.read(length))
+        if not isinstance(payload, dict):
+            raise ValueError("JSON body must be an object")
+        return payload
+
     def do_GET(self) -> None:
         parsed = urlparse(self.path)
         if parsed.path == "/api/status":
@@ -103,10 +118,57 @@ class CatalogRequestHandler(SimpleHTTPRequestHandler):
             except (psycopg.Error, ValueError) as exc:
                 self._json_response(HTTPStatus.BAD_REQUEST, {"error": str(exc)})
             return
+        if parsed.path == "/api/decks":
+            try:
+                self._json_response(HTTPStatus.OK, {"items": list_decks(self.server.database_url)})
+            except psycopg.Error as exc:
+                self._json_response(HTTPStatus.INTERNAL_SERVER_ERROR, {"error": str(exc)})
+            return
+        if parsed.path.startswith("/api/decks/"):
+            parts = parsed.path.strip("/").split("/")
+            try:
+                deck_id = parts[2]
+                if len(parts) == 4 and parts[3] == "export":
+                    self._json_response(HTTPStatus.OK, {"decklist": export_deck(deck_id, self.server.database_url)})
+                else:
+                    deck = get_deck(deck_id, self.server.database_url)
+                    self._json_response(HTTPStatus.OK if deck else HTTPStatus.NOT_FOUND, {"deck": deck})
+            except (ValueError, psycopg.Error) as exc:
+                self._json_response(HTTPStatus.BAD_REQUEST, {"error": str(exc)})
+            return
+        if parsed.path == "/api/rules":
+            rules = get_ruleset(url=self.server.database_url)
+            self._json_response(HTTPStatus.OK if rules else HTTPStatus.NOT_FOUND, {"ruleset": rules})
+            return
+        if parsed.path.startswith("/api/cards/") and parsed.path.endswith("/effects"):
+            card_id = parsed.path.removeprefix("/api/cards/").removesuffix("/effects").strip("/")
+            effects = get_card_effects(card_id, self.server.database_url)
+            self._json_response(HTTPStatus.OK if effects else HTTPStatus.NOT_FOUND, {"cardEffects": effects})
+            return
         super().do_GET()
 
     def do_POST(self) -> None:
-        if urlparse(self.path).path != "/api/sync":
+        path = urlparse(self.path).path
+        if path in {"/api/decks", "/api/decks/validate", "/api/simulations", "/api/optimize"}:
+            try:
+                payload = self._request_json()
+                if path == "/api/decks":
+                    result = create_deck(payload, self.server.database_url)
+                    status = HTTPStatus.CREATED if result["deck"] else HTTPStatus.UNPROCESSABLE_ENTITY
+                elif path == "/api/decks/validate":
+                    result = validate_payload(payload, self.server.database_url)
+                    status = HTTPStatus.OK if result["valid"] else HTTPStatus.UNPROCESSABLE_ENTITY
+                elif path == "/api/simulations":
+                    result = simulate_match(payload, self.server.database_url)
+                    status = HTTPStatus.CREATED
+                else:
+                    result = optimize_deck(payload, self.server.database_url)
+                    status = HTTPStatus.CREATED
+                self._json_response(status, result)
+            except (KeyError, ValueError, json.JSONDecodeError, psycopg.Error) as exc:
+                self._json_response(HTTPStatus.BAD_REQUEST, {"error": str(exc)})
+            return
+        if path != "/api/sync":
             self._json_response(HTTPStatus.NOT_FOUND, {"error": "Not found"})
             return
         if self.headers.get("X-PTCGL-Action") != "sync":

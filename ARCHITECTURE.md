@@ -32,7 +32,8 @@ PostgreSQL importer --------> PostgreSQL search database
                                       |
                           +-----------+-----------+
                           |                       |
-                    Browser interface       Simulation engine
+                    Browser + Deck Lab      Rules / simulation /
+                                             optimization
 ```
 
 The source snapshot and generated manifest remain the reproducibility layer.
@@ -54,7 +55,7 @@ record in `jsonb`. It provides:
 - weighted full-text search through `tsvector` and GIN;
 - fuzzy card-name matching through `pg_trgm`;
 - indexed filters for set, release date, and format legality;
-- a future home for decks, simulations, game states, and experiment results.
+- normalized decks, simulations, and optimization experiment results.
 
 The initial schema is in `db/init/001_schema.sql`, with incremental migrations
 in `db/migrations`. Docker Compose runs the same PostgreSQL major version
@@ -67,12 +68,17 @@ The API owns query parsing, weighted full-text and fuzzy ranking, filtering,
 sorting, and pagination. The current service uses Python's standard HTTP server
 for the local application boundary; a hosted framework remains an open choice.
 
-### Simulation engine
+### Deck, rules, and simulation engine
 
-The simulation engine will be a separate domain module. It may read card and
-deck data through repository interfaces, but it must not depend directly on
-HTTP or browser code. Simulations should be deterministic when given the same
-deck lists, random seed, rules version, and decision-policy version.
+Decks are normalized in PostgreSQL and enter the system through card IDs or a
+Pokémon TCG Live text list. Validation checks deck size, four-copy rules,
+Basic Pokémon, Live availability, and selected-format legality.
+
+The simulation engine is a separate domain module and does not depend on the
+browser. `prototype-0.1.0` is deterministic for the same decks, seed, rules
+version, and decision policies. It intentionally exposes its incomplete rules
+coverage in every result. Card effects are stored as versioned JSON generated
+by an incremental parser, retaining the raw source text for future parsing.
 
 ## Local and hosted environments
 
@@ -166,13 +172,59 @@ variables and are never committed.
 - Consequence: Unknown or unsupported states are explicit rather than inferred
   as legal. Simulation formats can select the exact status they require.
 
+### ADR-007: Use versioned declarative effects with raw-text fallback
+
+- Status: Accepted
+- Date: 2026-09-30
+- Decision: Store parsed card operations as versioned JSON in `card_effects`.
+  Mark each card `parsed`, `partial`, or `unparsed` and retain its raw text.
+- Reason: Thousands of unique card wordings cannot safely be converted into
+  executable behavior in one step. Explicit coverage lets the parser improve
+  without silently inventing rules.
+- Consequence: Simulations must report unsupported mechanics and must never
+  treat a partial parse as authoritative complete behavior.
+
+### ADR-008: Version deterministic simulation and decision policies
+
+- Status: Accepted
+- Date: 2026-09-30
+- Decision: Every simulation records its seed, model version, deck IDs, game
+  count, and named action policies. Initial policies are greedy damage,
+  durability, and seeded random selection.
+- Reason: Matchup results are useful only when they can be reproduced and
+  compared across engine changes.
+- Consequence: Rule improvements require a new model version rather than an
+  invisible behavior change.
+
+### ADR-009: Persist deck and experiment artifacts in PostgreSQL
+
+- Status: Accepted
+- Date: 2026-09-30
+- Decision: Store normalized decks, simulation runs, and optimization runs in
+  PostgreSQL while exposing import/export through the API and Deck Lab.
+- Reason: Experiments need stable inputs and durable outputs that can be
+  queried later.
+- Consequence: Hosted deployments use the same schema; authentication and deck
+  ownership must be added before multi-user hosting.
+
+### ADR-010: Scheduled sync produces reviewed changes
+
+- Status: Accepted
+- Date: 2026-09-30
+- Decision: Run a daily GitHub Action that syncs, imports, tests, and produces
+  a change report. Open a pull request when the tracked baseline changes.
+- Reason: Automatic discovery is useful, but legality/catalog changes should be
+  visible and reviewable before becoming the repository baseline.
+- Consequence: GitHub Actions needs pull-request write permission. Local manual
+  sync remains available for immediate testing.
+
 ## Open decisions
 
 - Python HTTP framework and API contract.
 - Migration tool and release process.
-- Card-effect representation: typed code, declarative rules, or a hybrid.
-- Simulation state model and action protocol.
-- Deck-search algorithms and evaluation metrics.
+- Complete card-effect grammar and official ruling overrides.
+- Full simulation state/action protocol beyond the prototype.
+- Deck-search evaluation metrics and tournament matchup datasets.
 - Whether semantic embeddings provide enough value after structured search.
 
 When one of these is decided, add a new ADR. If a decision changes, add a new

@@ -26,6 +26,11 @@ def _parser() -> argparse.ArgumentParser:
     import_db.add_argument("--data", type=Path, default=Path("data"))
     import_db.add_argument("--migrations", type=Path, default=Path("db/migrations"))
     import_db.add_argument("--database-url", default=None)
+    report = subparsers.add_parser("report", help="Compare a catalog with the saved baseline")
+    report.add_argument("--data", type=Path, default=Path("data"))
+    report.add_argument("--baseline", type=Path, default=Path("catalog/baseline.json"))
+    report.add_argument("--output", type=Path, default=Path("reports/latest.md"))
+    report.add_argument("--update-baseline", action="store_true")
     serve = subparsers.add_parser("serve", help="Run the local card browser and sync API")
     serve.add_argument("--directory", type=Path, default=Path("."))
     serve.add_argument("--output", type=Path, default=Path("data"))
@@ -67,6 +72,21 @@ def main() -> int:
         print(
             f"Imported {result.card_count:,} cards from {result.set_count} sets "
             f"into catalog run {result.catalog_run_id}"
+        )
+        return 0
+    if args.command == "report":
+        from .report import write_change_report
+
+        result = write_change_report(
+            data_dir=args.data,
+            baseline_path=args.baseline,
+            output_path=args.output,
+            update_baseline=args.update_baseline,
+        )
+        print(
+            f"Catalog report: {len(result['addedCards'])} added, "
+            f"{len(result['removedCards'])} removed; "
+            f"content changed: {'yes' if result['changed'] else 'no'}"
         )
         return 0
     try:

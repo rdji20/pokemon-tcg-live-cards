@@ -1,20 +1,22 @@
 # Pokemon TCG Live Lab
 
 An open project for exploring **Pokemon TCG Live** through reproducible card
-data, deck simulation, and automated decision-making. The current first stage
-builds an accurate English-language card catalog from an immutable source
-snapshot and exports it as JSONL, CSV, and SQLite.
+data, PostgreSQL search, deck validation, seeded simulation, and automated
+decision-making.
 
 ## Project direction
 
-The card catalog is the data foundation. Planned work includes:
+The current checkpoints include:
 
-1. A machine-readable rules and card-effects model.
-2. Deck representation, validation, importing, and exporting.
-3. A deterministic game-state and turn simulator.
-4. Automated deck construction and matchup evaluation.
-5. Decision policies for choosing actions in simulated games.
-6. Reproducible experiments comparing decks, strategies, and policy versions.
+1. A commit-pinned catalog with structured legality evidence.
+2. An idempotent PostgreSQL importer and ranked fuzzy search API.
+3. Deck creation, Live-list importing, exporting, and format validation.
+4. Versioned machine-readable rules and parsed card-effect records.
+5. A deterministic seeded simulator with three action-selection policies.
+6. A deterministic starter-deck optimizer whose results can be saved and
+   simulated.
+7. Daily catalog synchronization, Markdown change reports, tests, and GitHub
+   Actions.
 
 The initial automation target is the local simulator, so experiments remain
 repeatable and do not depend on controlling the Pokemon TCG Live client.
@@ -55,13 +57,16 @@ Policy evidence:
 
 ## Run it
 
-Requires Python 3.11 or newer and no runtime dependencies.
+Requires Python 3.11 or newer, PostgreSQL 17, and Docker for the documented
+local setup.
 
 ```bash
 python3 -m venv .venv
 . .venv/bin/activate
-python -m pip install -e .
+python -m pip install -e ".[test]"
+docker compose up -d db
 ptcgl-catalog sync --as-of 2026-09-30
+ptcgl-catalog import-db
 ```
 
 Or without installing:
@@ -89,8 +94,9 @@ IDs; it does not duplicate cards or catalog metadata.
 
 ## Open the card browser
 
-The project includes a responsive local web interface with search, filters,
-pagination, card images, and detailed card views:
+The project includes a responsive local interface with card search and a Deck
+Lab for importing, validating, saving, exporting, optimizing, and simulating
+decks:
 
 ```bash
 PYTHONPATH=src python3 -m ptcgl_catalog serve
@@ -105,6 +111,9 @@ The browser queries PostgreSQL through `/api/cards`; it does not download the
 complete JSONL catalog. PostgreSQL provides full-text ranking, trigram fuzzy
 name matching, filters, sorting, and pagination. Standard-legal cards are the
 default view.
+
+Open [http://localhost:8000/deck.html](http://localhost:8000/deck.html) for the
+Deck Lab. Saved decks and experiment results live in PostgreSQL.
 
 ## Local PostgreSQL
 
@@ -122,12 +131,52 @@ The default local connection is
 `.env` when needed; `.env` is ignored by Git. Hosted environments will use the
 same `DATABASE_URL` interface with credentials supplied by the host.
 
-Example query:
+Example PostgreSQL query:
 
 ```bash
-sqlite3 data/cards.sqlite3 \
-  "SELECT name, set_name, number FROM cards WHERE standard_legal = 1 AND name LIKE '%Pikachu%' ORDER BY release_date DESC;"
+docker compose exec db psql -U ptcgl -d ptcgl -c \
+  "SELECT name, set_name, number FROM cards WHERE standard_status = 'legal' AND name ILIKE '%Pikachu%' ORDER BY release_date DESC;"
 ```
+
+## API checkpoints
+
+- `GET /api/cards` — fuzzy/full-text search, filters, sorting, pagination
+- `GET /api/sets` and `GET /api/status` — catalog metadata
+- `POST /api/sync` — local guarded download and PostgreSQL import
+- `POST /api/decks/validate` and `POST /api/decks` — validate and save a deck
+- `GET /api/decks/{id}/export` — Pokémon TCG Live compatible text export
+- `GET /api/rules` and `GET /api/cards/{id}/effects` — rule/effect models
+- `POST /api/simulations` — seeded matchup simulation
+- `POST /api/optimize` — deterministic heuristic deck construction
+
+Run the automated checks with:
+
+```bash
+pytest -q
+node --check app.js
+node --check deck.js
+```
+
+## Scheduled synchronization
+
+The `Catalog sync` GitHub Action runs daily and can also be started manually.
+It downloads an immutable source snapshot, imports it into a clean PostgreSQL
+service, runs tests, creates `reports/latest.md`, and opens a pull request only
+when the saved catalog baseline changes. Generate the same report locally with:
+
+```bash
+ptcgl-catalog report --update-baseline
+```
+
+## Simulator boundary
+
+`prototype-0.1.0` is deterministic for the same decks, seed, rules version,
+and policies. It currently handles setup, draws, Basic Pokémon promotion,
+parsed draw effects, printed base damage, knockouts, prizes, and deck-out. It
+does not yet model energy costs, evolution, Weakness, Resistance, Retreat,
+Bench timing, or the long tail of card-specific effects. Every simulation
+result states these limitations so prototype output is not mistaken for a
+complete TCG rules judgment.
 
 ## Accuracy model
 

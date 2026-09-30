@@ -1,0 +1,62 @@
+name: CI
+
+on:
+  push:
+  pull_request:
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+          cache: pip
+      - run: python -m pip install -e ".[test]"
+      - run: python -m compileall -q src tests
+      - run: pytest -q
+      - run: node --check app.js
+      - run: node --check deck.js
+
+  postgres-integration:
+    runs-on: ubuntu-latest
+    services:
+      postgres:
+        image: postgres:17-alpine
+        env:
+          POSTGRES_DB: ptcgl
+          POSTGRES_USER: ptcgl
+          POSTGRES_PASSWORD: ptcgl_local
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd "pg_isready -U ptcgl -d ptcgl"
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 5
+    env:
+      DATABASE_URL: postgresql://ptcgl:ptcgl_local@localhost:5432/ptcgl
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+          cache: pip
+      - run: python -m pip install -e ".[test]"
+      - run: ptcgl-catalog sync --as-of "$(date -u +%F)" --database-url "$DATABASE_URL"
+      - name: Verify idempotent import
+        run: |
+          ptcgl-catalog import-db
+          ptcgl-catalog import-db
+          python - <<'PY'
+          import os
+          import psycopg
+          with psycopg.connect(os.environ["DATABASE_URL"]) as connection:
+              cards = connection.execute("select count(*) from cards where active").fetchone()[0]
+              effects = connection.execute("select count(*) from card_effects").fetchone()[0]
+              runs = connection.execute("select count(*) from catalog_runs").fetchone()[0]
+          assert cards > 10_000
+          assert effects == cards
+          assert runs == 1
+          PY

@@ -1,0 +1,104 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="description" content="Build, validate, and simulate Pokemon TCG Live decks.">
+  <title>Deck Lab · Pokémon TCG Live Cards</title>
+  <link rel="icon" href="favicon.svg" type="image/svg+xml">
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Roboto:wght@400;500;700&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="styles.css">
+  <link rel="stylesheet" href="deck.css">
+</head>
+<body>
+  <header class="site-header">
+    <a class="brand" href="index.html" aria-label="Return to card catalog">
+      <span class="brand-mark" aria-hidden="true"><i></i></span>
+      <strong>Deck Lab</strong>
+    </a>
+    <div class="catalog-actions">
+      <a class="header-link" href="index.html">Cards</a>
+      <span class="header-count" id="deckCount">0 saved decks</span>
+    </div>
+  </header>
+
+  <main class="deck-main">
+    <section class="deck-intro">
+      <h1>Build and test decks</h1>
+      <p>Import a Pokémon TCG Live list, validate it against the catalog, or generate a starting deck for simulation.</p>
+    </section>
+
+    <div class="deck-layout">
+      <section class="lab-panel" aria-labelledby="builderTitle">
+        <div class="panel-heading">
+          <div><span class="step">1</span><h2 id="builderTitle">Deck</h2></div>
+          <select id="deckFormat" aria-label="Deck format">
+            <option value="standard" selected>Standard</option>
+            <option value="live-expanded">Live Expanded</option>
+            <option value="unlimited">Unlimited</option>
+          </select>
+        </div>
+        <label class="field-label" for="deckName">Name</label>
+        <input class="text-input" id="deckName" value="Untitled deck" autocomplete="off">
+        <label class="field-label" for="decklist">Pokémon TCG Live deck list</label>
+        <textarea id="decklist" spellcheck="false" placeholder="Pokémon: 4&#10;4 Charmander OBF 26&#10;&#10;Trainer: 4&#10;4 Professor's Research SVI 189"></textarea>
+        <div class="action-row">
+          <button class="primary-button" id="validateButton" type="button">Validate</button>
+          <button class="secondary-button" id="saveButton" type="button">Save deck</button>
+        </div>
+        <div class="result-box" id="validationResult" aria-live="polite">Paste a 60-card list to begin.</div>
+      </section>
+
+      <section class="lab-panel" aria-labelledby="optimizerTitle">
+        <div class="panel-heading">
+          <div><span class="step">2</span><h2 id="optimizerTitle">Starter optimizer</h2></div>
+        </div>
+        <p class="panel-copy">Generate a deterministic 60-card baseline using the selected type. This is a measurable starting point, not a claim that the deck is competitive.</p>
+        <label class="field-label" for="energyType">Pokémon type</label>
+        <select id="energyType">
+          <option value="">Any type</option>
+          <option>Colorless</option><option>Darkness</option><option>Dragon</option>
+          <option>Fighting</option><option>Fire</option><option>Grass</option>
+          <option>Lightning</option><option>Metal</option><option>Psychic</option>
+          <option>Water</option>
+        </select>
+        <label class="field-label" for="optimizerSeed">Seed</label>
+        <input class="text-input" id="optimizerSeed" type="number" value="1" min="0">
+        <button class="primary-button full-button" id="optimizeButton" type="button">Generate deck</button>
+        <div class="result-box" id="optimizerResult" aria-live="polite">No generated deck yet.</div>
+      </section>
+
+      <section class="lab-panel wide-panel" aria-labelledby="savedTitle">
+        <div class="panel-heading">
+          <div><span class="step">3</span><h2 id="savedTitle">Saved decks</h2></div>
+          <button class="secondary-button compact-button" id="refreshDecksButton" type="button">Refresh</button>
+        </div>
+        <div id="savedDecks" class="saved-decks"><p class="empty-copy">No saved decks.</p></div>
+      </section>
+
+      <section class="lab-panel wide-panel" aria-labelledby="simulationTitle">
+        <div class="panel-heading">
+          <div><span class="step">4</span><h2 id="simulationTitle">Simulation</h2></div>
+          <span class="model-label">prototype-0.1.0</span>
+        </div>
+        <div class="simulation-grid">
+          <label><span>Deck A</span><select id="deckA"></select></label>
+          <label><span>Deck B</span><select id="deckB"></select></label>
+          <label><span>Games</span><input class="text-input" id="games" type="number" value="100" min="1" max="1000"></label>
+          <label><span>Seed</span><input class="text-input" id="simulationSeed" type="number" value="1" min="0"></label>
+          <label><span>Policy A</span><select id="policyA"><option value="greedy">Greedy damage</option><option value="durable">Durable</option><option value="random">Random</option></select></label>
+          <label><span>Policy B</span><select id="policyB"><option value="greedy">Greedy damage</option><option value="durable">Durable</option><option value="random">Random</option></select></label>
+        </div>
+        <button class="primary-button" id="simulateButton" type="button">Run simulation</button>
+        <div class="result-box" id="simulationResult" aria-live="polite">Choose two saved decks.</div>
+        <p class="limitation">Current model covers seeded setup, draws, Basic Pokémon promotion, parsed draw effects, printed base damage, knockouts, prizes, and deck-out. Energy costs, evolution, Weakness, Resistance, Retreat, Bench timing, and many card-specific effects are not implemented yet.</p>
+      </section>
+    </div>
+  </main>
+
+  <footer><span>Pokémon TCG Live Cards</span><p>Local deterministic experiment lab</p></footer>
+  <script src="deck.js" defer></script>
+</body>
+</html>

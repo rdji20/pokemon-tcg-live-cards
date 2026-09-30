@@ -1,0 +1,34 @@
+{
+  "id": "pokemon-tcg-standard",
+  "version": "1.0.0",
+  "name": "Pokemon TCG Standard foundation",
+  "deck": {
+    "size": 60,
+    "maximumCopiesByName": 4,
+    "basicEnergyCopyLimit": null,
+    "requiresBasicPokemon": true
+  },
+  "setup": {
+    "openingHand": 7,
+    "prizeCards": 6,
+    "maximumBench": 5,
+    "mulliganWhenNoBasicPokemon": true
+  },
+  "turn": {
+    "drawAtStart": 1,
+    "supportersPerTurn": 1,
+    "manualEnergyAttachmentsPerTurn": 1,
+    "retreatsPerTurn": 1,
+    "attackEndsTurn": true
+  },
+  "winConditions": [
+    "take_all_prize_cards",
+    "opponent_has_no_pokemon_in_play",
+    "opponent_cannot_draw_at_turn_start"
+  ],
+  "implementation": {
+    "status": "foundation",
+    "notes": "This file defines validation and state-model constants. Individual card rulings and complete effect timing remain versioned separately."
+  }
+}
+

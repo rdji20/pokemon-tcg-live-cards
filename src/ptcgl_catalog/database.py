@@ -12,6 +12,7 @@ from psycopg.rows import dict_row
 from psycopg.types.json import Jsonb
 
 from .catalog import CatalogError
+from .effects import PARSER_VERSION, parse_card_effects
 
 
 DEFAULT_DATABASE_URL = "postgresql://ptcgl:ptcgl_local@localhost:5432/ptcgl"
@@ -225,6 +226,38 @@ def import_catalog(
                 """,
                 card_rows,
             )
+            effect_rows = []
+            for card in cards:
+                parsed = parse_card_effects(card)
+                effect_rows.append((
+                    card["id"], PARSER_VERSION, parsed["status"], Jsonb(parsed),
+                ))
+            connection.cursor().executemany(
+                """
+                INSERT INTO card_effects (card_id, parser_version, status, effects)
+                VALUES (%s, %s, %s, %s)
+                ON CONFLICT (card_id) DO UPDATE SET
+                    parser_version = EXCLUDED.parser_version,
+                    status = EXCLUDED.status,
+                    effects = EXCLUDED.effects,
+                    updated_at = now()
+                """,
+                effect_rows,
+            )
+            rules_path = migrations_dir.parent.parent / "rules" / "standard-v1.json"
+            if rules_path.is_file():
+                rules = json.loads(rules_path.read_text(encoding="utf-8"))
+                connection.execute(
+                    """
+                    INSERT INTO rulesets (id, version, name, rules)
+                    VALUES (%s, %s, %s, %s)
+                    ON CONFLICT (id) DO UPDATE SET
+                        version = EXCLUDED.version,
+                        name = EXCLUDED.name,
+                        rules = EXCLUDED.rules
+                    """,
+                    (rules["id"], rules["version"], rules["name"], Jsonb(rules)),
+                )
         connection.commit()
     return ImportResult(run_id, len(sets), len(cards), source["commit"])
 
@@ -346,6 +379,8 @@ def search_cards(
             f"SELECT count(*) AS total FROM cards WHERE {where_sql}",
             params,
         ).fetchone()["total"]
+        pages = max(1, (total + page_size - 1) // page_size)
+        page = min(page, pages)
         rows = connection.execute(
             f"""
             SELECT raw_data, live_status, standard_status, expanded_status,
@@ -358,11 +393,32 @@ def search_cards(
             """,
             [*rank_params, *params, page_size, (page - 1) * page_size],
         ).fetchall()
-    pages = max(1, (total + page_size - 1) // page_size)
     return {
         "items": [_card_payload(dict(row)) for row in rows],
         "total": total,
-        "page": min(page, pages),
+        "page": page,
         "pageSize": page_size,
         "pages": pages,
     }
+
+
+def get_ruleset(ruleset_id: str = "pokemon-tcg-standard", url: str | None = None) -> dict[str, Any] | None:
+    with psycopg.connect(database_url(url), row_factory=dict_row) as connection:
+        row = connection.execute(
+            "SELECT id, version, name, rules FROM rulesets WHERE id = %s",
+            (ruleset_id,),
+        ).fetchone()
+    return dict(row) if row else None
+
+
+def get_card_effects(card_id: str, url: str | None = None) -> dict[str, Any] | None:
+    with psycopg.connect(database_url(url), row_factory=dict_row) as connection:
+        row = connection.execute(
+            "SELECT card_id, parser_version, status, effects, updated_at FROM card_effects WHERE card_id = %s",
+            (card_id,),
+        ).fetchone()
+    if row is None:
+        return None
+    result = dict(row)
+    result["updated_at"] = result["updated_at"].isoformat()
+    return result
