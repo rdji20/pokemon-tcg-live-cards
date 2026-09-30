@@ -8,6 +8,9 @@ const state = {
 
 const el = {
   headerCount: document.querySelector('#headerCount'),
+  lastSync: document.querySelector('#lastSync'),
+  syncButton: document.querySelector('#syncButton'),
+  syncButtonLabel: document.querySelector('#syncButtonLabel'),
   totalCards: document.querySelector('#totalCards'),
   standardCards: document.querySelector('#standardCards'),
   totalSets: document.querySelector('#totalSets'),
@@ -23,9 +26,13 @@ const el = {
   error: document.querySelector('#errorState'),
   errorMessage: document.querySelector('#errorMessage'),
   grid: document.querySelector('#cardGrid'),
+  paginationTop: document.querySelector('#paginationTop'),
   pagination: document.querySelector('#pagination'),
+  pagesTop: document.querySelector('#pageNumbersTop'),
   pages: document.querySelector('#pageNumbers'),
+  previousTop: document.querySelector('#prevPageTop'),
   previous: document.querySelector('#prevPage'),
+  nextTop: document.querySelector('#nextPageTop'),
   next: document.querySelector('#nextPage'),
   dialog: document.querySelector('#cardDialog'),
   dialogContent: document.querySelector('#dialogContent'),
@@ -64,11 +71,13 @@ function prepareCard(card) {
   return card;
 }
 
-async function loadCatalog() {
+async function loadCatalog(cacheKey = '') {
   try {
+    el.error.hidden = true;
+    const suffix = cacheKey ? `?v=${cacheKey}` : '';
     const [manifestResponse, cardsResponse] = await Promise.all([
-      fetch('data/manifest.json'),
-      fetch('data/cards.jsonl'),
+      fetch(`data/manifest.json${suffix}`, { cache: 'no-store' }),
+      fetch(`data/cards.jsonl${suffix}`, { cache: 'no-store' }),
     ]);
     if (!manifestResponse.ok || !cardsResponse.ok) throw new Error('The generated data files were not found.');
 
@@ -80,6 +89,7 @@ async function loadCatalog() {
     applyFilters();
     el.loading.hidden = true;
     el.grid.hidden = false;
+    el.paginationTop.hidden = false;
     el.pagination.hidden = false;
   } catch (error) {
     el.loading.hidden = true;
@@ -100,9 +110,14 @@ function populateSummary() {
   el.latestDate.textContent = displayDate(latest?.releaseDate);
   const commit = state.manifest?.source?.commit || '';
   el.sourceCommit.textContent = commit ? `source ${commit.slice(0, 12)}` : 'source unavailable';
+  const generatedAt = state.manifest?.generatedAt;
+  el.lastSync.textContent = generatedAt
+    ? `Last sync: ${new Intl.DateTimeFormat('en-US', { dateStyle: 'medium', timeStyle: 'short' }).format(new Date(generatedAt))}`
+    : 'Last sync: unknown';
 }
 
 function populateSets() {
+  el.set.replaceChildren(new Option('All sets', ''));
   const sets = [...new Map(state.cards.map(card => [card.set.id, card.set])).values()]
     .sort((a, b) => normalizedDate(b.releaseDate).localeCompare(normalizedDate(a.releaseDate)) || a.name.localeCompare(b.name));
   const groups = new Map();
@@ -173,15 +188,18 @@ function render() {
   `).join('');
 
   el.previous.disabled = state.page === 1;
+  el.previousTop.disabled = state.page === 1;
   el.next.disabled = state.page === totalPages;
-  renderPageNumbers(totalPages);
+  el.nextTop.disabled = state.page === totalPages;
+  renderPageNumbers(el.pagesTop, totalPages);
+  renderPageNumbers(el.pages, totalPages);
 }
 
-function renderPageNumbers(totalPages) {
+function renderPageNumbers(container, totalPages) {
   const candidates = new Set([1, totalPages, state.page - 1, state.page, state.page + 1]);
   const pages = [...candidates].filter(page => page > 0 && page <= totalPages).sort((a, b) => a - b);
   let previous = 0;
-  el.pages.innerHTML = pages.map(page => {
+  container.innerHTML = pages.map(page => {
     const gap = page - previous > 1 ? '<span aria-hidden="true">…</span>' : '';
     previous = page;
     return `${gap}<button type="button" data-page="${page}" class="${page === state.page ? 'active' : ''}" aria-label="Page ${page}" ${page === state.page ? 'aria-current="page"' : ''}>${page}</button>`;
@@ -198,7 +216,12 @@ function openCard(card) {
   const tags = [card.supertype, ...(card.subtypes || []), ...(card.types || []), card.catalog.standardLegal ? 'Standard' : null, card.catalog.expandedLegal ? 'Expanded' : null].filter(Boolean);
   el.dialogContent.innerHTML = `
     <div class="dialog-layout">
-      <div class="dialog-art"><img src="${escapeHtml(card.images?.large || card.images?.small)}" alt="${escapeHtml(card.name)} card"></div>
+      <div class="dialog-art">
+        <div class="interactive-card" id="interactiveCard" aria-label="Drag to tilt the card">
+          <img src="${escapeHtml(card.images?.large || card.images?.small)}" alt="${escapeHtml(card.name)} card" draggable="false">
+          <span class="card-shine" aria-hidden="true"></span>
+        </div>
+      </div>
       <div class="dialog-details">
         <span class="dialog-kicker">${escapeHtml(card.set.series)} · ${escapeHtml(card.set.id)}</span>
         <h3 id="dialogTitle">${escapeHtml(card.name)}</h3>
@@ -216,6 +239,69 @@ function openCard(card) {
       </div>
     </div>`;
   el.dialog.showModal();
+  initializeCardTilt();
+}
+
+function initializeCardTilt() {
+  const card = document.querySelector('#interactiveCard');
+  if (!card) return;
+
+  let activePointer = null;
+  let startX = 0;
+  let startY = 0;
+
+  const clamp = (value, minimum, maximum) => Math.min(maximum, Math.max(minimum, value));
+  const reset = () => {
+    activePointer = null;
+    card.classList.remove('is-dragging');
+    card.style.setProperty('--move-x', '0px');
+    card.style.setProperty('--move-y', '0px');
+    card.style.setProperty('--rotate-x', '0deg');
+    card.style.setProperty('--rotate-y', '0deg');
+    card.style.setProperty('--card-scale', '1');
+    card.style.setProperty('--shine-opacity', '0');
+  };
+
+  card.addEventListener('pointerdown', event => {
+    if (event.button !== 0 && event.pointerType === 'mouse') return;
+    activePointer = event.pointerId;
+    startX = event.clientX;
+    startY = event.clientY;
+    card.setPointerCapture(event.pointerId);
+    card.classList.add('is-dragging');
+    card.style.setProperty('--card-scale', '1.025');
+    card.style.setProperty('--shine-opacity', '.75');
+  });
+
+  card.addEventListener('pointermove', event => {
+    if (event.pointerId !== activePointer) return;
+    const rect = card.getBoundingClientRect();
+    const deltaX = event.clientX - startX;
+    const deltaY = event.clientY - startY;
+    const rotateY = clamp((deltaX / rect.width) * 38, -20, 20);
+    const rotateX = clamp((-deltaY / rect.height) * 38, -20, 20);
+    const moveX = clamp(deltaX * .07, -14, 14);
+    const moveY = clamp(deltaY * .05, -10, 10);
+    const shineX = clamp(((event.clientX - rect.left) / rect.width) * 100, 0, 100);
+    const shineY = clamp(((event.clientY - rect.top) / rect.height) * 100, 0, 100);
+
+    card.style.setProperty('--move-x', `${moveX}px`);
+    card.style.setProperty('--move-y', `${moveY}px`);
+    card.style.setProperty('--rotate-x', `${rotateX}deg`);
+    card.style.setProperty('--rotate-y', `${rotateY}deg`);
+    card.style.setProperty('--shine-x', `${shineX}%`);
+    card.style.setProperty('--shine-y', `${shineY}%`);
+  });
+
+  card.addEventListener('pointerup', event => {
+    if (event.pointerId !== activePointer) return;
+    card.releasePointerCapture(event.pointerId);
+    reset();
+  });
+  card.addEventListener('pointercancel', reset);
+  card.addEventListener('lostpointercapture', () => {
+    if (activePointer !== null) reset();
+  });
 }
 
 let searchTimer;
@@ -225,10 +311,14 @@ el.search.addEventListener('input', () => {
 });
 [el.set, el.type, el.legality, el.sort].forEach(control => control.addEventListener('change', () => applyFilters()));
 el.previous.addEventListener('click', () => changePage(state.page - 1));
+el.previousTop.addEventListener('click', () => changePage(state.page - 1));
 el.next.addEventListener('click', () => changePage(state.page + 1));
-el.pages.addEventListener('click', event => {
-  const button = event.target.closest('[data-page]');
-  if (button) changePage(Number(button.dataset.page));
+el.nextTop.addEventListener('click', () => changePage(state.page + 1));
+[el.pagesTop, el.pages].forEach(container => {
+  container.addEventListener('click', event => {
+    const button = event.target.closest('[data-page]');
+    if (button) changePage(Number(button.dataset.page));
+  });
 });
 
 function changePage(page) {
@@ -255,6 +345,29 @@ document.addEventListener('keydown', event => {
   if (event.key === '/' && document.activeElement !== el.search) {
     event.preventDefault();
     el.search.focus();
+  }
+});
+
+el.syncButton.addEventListener('click', async () => {
+  const originalLabel = el.syncButtonLabel.textContent;
+  el.syncButton.disabled = true;
+  el.syncButtonLabel.textContent = 'Syncing…';
+  el.lastSync.textContent = 'Sync in progress…';
+  try {
+    const response = await fetch('/api/sync', {
+      method: 'POST',
+      headers: { 'X-PTCGL-Action': 'sync' },
+    });
+    const result = await response.json();
+    if (!response.ok) throw new Error(result.error || 'Sync failed');
+    await loadCatalog(Date.now());
+    el.syncButtonLabel.textContent = 'Synced';
+    setTimeout(() => { el.syncButtonLabel.textContent = originalLabel; }, 1600);
+  } catch (error) {
+    el.lastSync.textContent = `Sync failed: ${error.message}`;
+    el.syncButtonLabel.textContent = 'Try again';
+  } finally {
+    el.syncButton.disabled = false;
   }
 });
 

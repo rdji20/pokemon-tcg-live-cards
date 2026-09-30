@@ -17,7 +17,14 @@
       <span class="brand-mark" aria-hidden="true"><i></i></span>
       <strong>Pokémon TCG Live Cards</strong>
     </a>
-    <div class="header-count" id="headerCount">Loading…</div>
+    <div class="catalog-actions">
+      <span class="header-count" id="headerCount">Loading…</span>
+      <span class="last-sync" id="lastSync">Last sync: —</span>
+      <button class="sync-button" id="syncButton" type="button">
+        <span class="sync-ball" aria-hidden="true"></span>
+        <span id="syncButtonLabel">Sync cards</span>
+      </button>
+    </div>
   </header>
 
   <main>
@@ -89,11 +96,17 @@
         <code>python3 -m http.server 8000</code>
       </div>
 
+      <nav id="paginationTop" class="pagination pagination-top" aria-label="Card pages" hidden>
+        <button id="prevPageTop" type="button">← Previous</button>
+        <div id="pageNumbersTop" class="page-numbers"></div>
+        <button id="nextPageTop" type="button">Next →</button>
+      </nav>
+
       <div id="cardGrid" class="card-grid" hidden></div>
 
       <nav id="pagination" class="pagination" aria-label="Card pages" hidden>
         <button id="prevPage" type="button">← Previous</button>
-        <div id="pageNumbers"></div>
+        <div id="pageNumbers" class="page-numbers"></div>
         <button id="nextPage" type="button">Next →</button>
       </nav>
     </section>

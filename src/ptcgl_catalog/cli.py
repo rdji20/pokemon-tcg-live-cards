@@ -21,11 +21,32 @@ def _parser() -> argparse.ArgumentParser:
     sync.add_argument("--policy", type=Path, default=None)
     sync.add_argument("--archive", type=Path, default=None, help="Use a local source tar.gz")
     sync.add_argument("--commit", default=None, help="Commit represented by --archive")
+    serve = subparsers.add_parser("serve", help="Run the local card browser and sync API")
+    serve.add_argument("--directory", type=Path, default=Path("."))
+    serve.add_argument("--output", type=Path, default=Path("data"))
+    serve.add_argument("--cache", type=Path, default=Path(".cache"))
+    serve.add_argument("--host", default="127.0.0.1")
+    serve.add_argument("--port", type=int, default=8000)
+    serve.add_argument("--ref", default="master")
+    serve.add_argument("--policy", type=Path, default=None)
     return parser
 
 
 def main() -> int:
     args = _parser().parse_args()
+    if args.command == "serve":
+        from .server import run_server
+
+        run_server(
+            project_dir=args.directory,
+            output_dir=args.output,
+            cache_dir=args.cache,
+            host=args.host,
+            port=args.port,
+            ref=args.ref,
+            policy_path=args.policy,
+        )
+        return 0
     try:
         result = build_catalog(
             output_dir=args.output,
@@ -50,4 +71,3 @@ def main() -> int:
 
 if __name__ == "__main__":
     raise SystemExit(main())
-

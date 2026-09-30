@@ -137,6 +137,20 @@ variables and are never committed.
   client updates.
 - Consequence: Rules and card effects must be modeled explicitly.
 
+### ADR-005: Expose catalog refresh only through the local application server
+
+- Status: Accepted
+- Date: 2026-09-30
+- Decision: The browser's manual sync button calls a same-origin endpoint on a
+  server bound to `127.0.0.1`. The endpoint requires a custom request header and
+  permits only one sync at a time.
+- Reason: Static HTTP servers cannot start the Python catalog builder. A small
+  local endpoint provides the requested UI action without exposing a refresh
+  operation to the network.
+- Consequence: A hosted deployment must move refreshes to an authenticated
+  administrative job or scheduled worker; it must not publish this endpoint
+  without access control.
+
 ## Open decisions
 
 - Python HTTP framework and API contract.
@@ -148,4 +162,3 @@ variables and are never committed.
 
 When one of these is decided, add a new ADR. If a decision changes, add a new
 ADR that supersedes the old one instead of deleting the previous reasoning.
-

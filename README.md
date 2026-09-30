@@ -84,12 +84,13 @@ The project includes a responsive local web interface with search, filters,
 pagination, card images, and detailed card views:
 
 ```bash
-python3 -m http.server 8000
+PYTHONPATH=src python3 -m ptcgl_catalog serve
 ```
 
 Then open [http://localhost:8000](http://localhost:8000). Opening `index.html`
 directly from Finder will not work because browsers prevent local HTML files
-from fetching the generated catalog.
+from fetching the generated catalog. The local server also powers the
+**Sync cards** button and binds to `127.0.0.1` by default.
 
 ## Local PostgreSQL
 
