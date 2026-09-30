@@ -21,6 +21,11 @@ def _parser() -> argparse.ArgumentParser:
     sync.add_argument("--policy", type=Path, default=None)
     sync.add_argument("--archive", type=Path, default=None, help="Use a local source tar.gz")
     sync.add_argument("--commit", default=None, help="Commit represented by --archive")
+    sync.add_argument("--database-url", default=None, help="Import into PostgreSQL after syncing")
+    import_db = subparsers.add_parser("import-db", help="Import generated catalog files into PostgreSQL")
+    import_db.add_argument("--data", type=Path, default=Path("data"))
+    import_db.add_argument("--migrations", type=Path, default=Path("db/migrations"))
+    import_db.add_argument("--database-url", default=None)
     serve = subparsers.add_parser("serve", help="Run the local card browser and sync API")
     serve.add_argument("--directory", type=Path, default=Path("."))
     serve.add_argument("--output", type=Path, default=Path("data"))
@@ -29,6 +34,8 @@ def _parser() -> argparse.ArgumentParser:
     serve.add_argument("--port", type=int, default=8000)
     serve.add_argument("--ref", default="master")
     serve.add_argument("--policy", type=Path, default=None)
+    serve.add_argument("--database-url", default=None)
+    serve.add_argument("--migrations", type=Path, default=Path("db/migrations"))
     return parser
 
 
@@ -45,6 +52,21 @@ def main() -> int:
             port=args.port,
             ref=args.ref,
             policy_path=args.policy,
+            database_url_value=args.database_url,
+            migrations_dir=args.migrations,
+        )
+        return 0
+    if args.command == "import-db":
+        from .database import import_catalog
+
+        result = import_catalog(
+            data_dir=args.data,
+            migrations_dir=args.migrations,
+            url=args.database_url,
+        )
+        print(
+            f"Imported {result.card_count:,} cards from {result.set_count} sets "
+            f"into catalog run {result.catalog_run_id}"
         )
         return 0
     try:
@@ -57,6 +79,15 @@ def main() -> int:
             archive_path=args.archive,
             commit=args.commit,
         )
+        if args.database_url:
+            from .database import import_catalog
+
+            imported = import_catalog(
+                data_dir=args.output,
+                migrations_dir=Path("db/migrations"),
+                url=args.database_url,
+            )
+            print(f"Imported into PostgreSQL catalog run {imported.catalog_run_id}")
     except CatalogError as exc:
         print(f"error: {exc}")
         return 1

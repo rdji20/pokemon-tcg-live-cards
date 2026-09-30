@@ -1,9 +1,12 @@
 const state = {
   cards: [],
-  filtered: [],
+  sets: [],
   manifest: null,
+  total: 0,
+  pages: 1,
   page: 1,
   pageSize: 48,
+  requestId: 0,
 };
 
 const el = {
@@ -63,30 +66,22 @@ function collectorNumber(card) {
   return total ? `${card.number}/${total}` : card.number || '—';
 }
 
-function prepareCard(card) {
-  const moves = [...(card.attacks || []), ...(card.abilities || [])];
-  card._search = [card.name, card.id, card.artist, card.rarity, card.set?.name, card.supertype,
-    ...(card.subtypes || []), ...moves.flatMap(move => [move.name, move.text])]
-    .filter(Boolean).join(' ').toLocaleLowerCase();
-  return card;
-}
-
 async function loadCatalog(cacheKey = '') {
   try {
     el.error.hidden = true;
     const suffix = cacheKey ? `?v=${cacheKey}` : '';
-    const [manifestResponse, cardsResponse] = await Promise.all([
-      fetch(`data/manifest.json${suffix}`, { cache: 'no-store' }),
-      fetch(`data/cards.jsonl${suffix}`, { cache: 'no-store' }),
+    const [statusResponse, setsResponse] = await Promise.all([
+      fetch(`/api/status${suffix}`, { cache: 'no-store' }),
+      fetch(`/api/sets${suffix}`, { cache: 'no-store' }),
     ]);
-    if (!manifestResponse.ok || !cardsResponse.ok) throw new Error('The generated data files were not found.');
+    if (!statusResponse.ok || !setsResponse.ok) throw new Error('The catalog API or PostgreSQL database is unavailable.');
 
-    state.manifest = await manifestResponse.json();
-    const cardText = await cardsResponse.text();
-    state.cards = cardText.trim().split('\n').filter(Boolean).map(line => prepareCard(JSON.parse(line)));
-    populateSummary();
+    const status = await statusResponse.json();
+    state.manifest = status.manifest;
+    state.sets = (await setsResponse.json()).items;
+    populateSummary(status.database);
     populateSets();
-    applyFilters();
+    await applyFilters(true);
     el.loading.hidden = true;
     el.grid.hidden = false;
     el.paginationTop.hidden = false;
@@ -94,20 +89,17 @@ async function loadCatalog(cacheKey = '') {
   } catch (error) {
     el.loading.hidden = true;
     el.error.hidden = false;
-    el.errorMessage.textContent = `${error.message} Start a local server in this folder, then open http://localhost:8000.`;
+    el.errorMessage.textContent = `${error.message} Start PostgreSQL and run the catalog server.`;
   }
 }
 
-function populateSummary() {
-  const standard = state.cards.filter(card => card.catalog?.standardLegal).length;
-  const sets = new Map(state.cards.map(card => [card.set.id, card.set]));
-  const latest = [...sets.values()].sort((a, b) => normalizedDate(b.releaseDate).localeCompare(normalizedDate(a.releaseDate)))[0];
-  el.headerCount.textContent = `${number.format(state.cards.length)} cards`;
-  el.totalCards.textContent = number.format(state.cards.length);
-  el.standardCards.textContent = number.format(standard);
-  el.totalSets.textContent = number.format(sets.size);
-  el.latestSet.textContent = latest?.name || '—';
-  el.latestDate.textContent = displayDate(latest?.releaseDate);
+function populateSummary(database) {
+  el.headerCount.textContent = `${number.format(database.cards)} cards`;
+  el.totalCards.textContent = number.format(database.cards);
+  el.standardCards.textContent = number.format(database.standard_cards);
+  el.totalSets.textContent = number.format(database.sets);
+  el.latestSet.textContent = database.latest_set || '—';
+  el.latestDate.textContent = displayDate(database.latest_release);
   const commit = state.manifest?.source?.commit || '';
   el.sourceCommit.textContent = commit ? `source ${commit.slice(0, 12)}` : 'source unavailable';
   const generatedAt = state.manifest?.generatedAt;
@@ -118,10 +110,8 @@ function populateSummary() {
 
 function populateSets() {
   el.set.replaceChildren(new Option('All sets', ''));
-  const sets = [...new Map(state.cards.map(card => [card.set.id, card.set])).values()]
-    .sort((a, b) => normalizedDate(b.releaseDate).localeCompare(normalizedDate(a.releaseDate)) || a.name.localeCompare(b.name));
   const groups = new Map();
-  for (const set of sets) {
+  for (const set of state.sets) {
     if (!groups.has(set.series)) groups.set(set.series, []);
     groups.get(set.series).push(set);
   }
@@ -138,38 +128,40 @@ function populateSets() {
   }
 }
 
-function applyFilters(resetPage = true) {
-  const query = el.search.value.trim().toLocaleLowerCase();
-  const setId = el.set.value;
-  const type = el.type.value;
-  const legality = el.legality.value;
-
-  state.filtered = state.cards.filter(card => {
-    if (query && !card._search.includes(query)) return false;
-    if (setId && card.set.id !== setId) return false;
-    if (type && card.supertype !== type) return false;
-    if (legality === 'standard' && !card.catalog.standardLegal) return false;
-    if (legality === 'expanded' && !card.catalog.expandedLegal) return false;
-    return true;
-  });
-
-  const sorters = {
-    newest: (a, b) => normalizedDate(b.catalog.setReleaseDate).localeCompare(normalizedDate(a.catalog.setReleaseDate)) || a.name.localeCompare(b.name),
-    oldest: (a, b) => normalizedDate(a.catalog.setReleaseDate).localeCompare(normalizedDate(b.catalog.setReleaseDate)) || a.name.localeCompare(b.name),
-    name: (a, b) => a.name.localeCompare(b.name) || a.set.name.localeCompare(b.set.name),
-    set: (a, b) => a.set.name.localeCompare(b.set.name) || String(a.number).localeCompare(String(b.number), undefined, { numeric: true }),
-  };
-  state.filtered.sort(sorters[el.sort.value]);
+async function applyFilters(resetPage = true) {
   if (resetPage) state.page = 1;
-  render();
+  const requestId = ++state.requestId;
+  const params = new URLSearchParams({
+    q: el.search.value.trim(),
+    set_id: el.set.value,
+    supertype: el.type.value,
+    legality: el.legality.value,
+    sort: el.sort.value,
+    page: String(state.page),
+    page_size: String(state.pageSize),
+  });
+  try {
+    const response = await fetch(`/api/cards?${params}`, { cache: 'no-store' });
+    const result = await response.json();
+    if (!response.ok) throw new Error(result.error || 'Search failed');
+    if (requestId !== state.requestId) return;
+    state.cards = result.items;
+    state.total = result.total;
+    state.page = result.page;
+    state.pages = result.pages;
+    render();
+  } catch (error) {
+    if (requestId !== state.requestId) return;
+    el.error.hidden = false;
+    el.errorMessage.textContent = error.message;
+  }
 }
 
 function render() {
-  const totalPages = Math.max(1, Math.ceil(state.filtered.length / state.pageSize));
+  const totalPages = state.pages;
   state.page = Math.min(state.page, totalPages);
-  const start = (state.page - 1) * state.pageSize;
-  const cards = state.filtered.slice(start, start + state.pageSize);
-  el.resultSummary.textContent = `${number.format(state.filtered.length)} ${state.filtered.length === 1 ? 'card' : 'cards'} found`;
+  const cards = state.cards;
+  el.resultSummary.textContent = `${number.format(state.total)} ${state.total === 1 ? 'card' : 'cards'} found`;
 
   el.grid.innerHTML = cards.map((card, index) => `
     <article class="card-tile" tabindex="0" role="button" data-card-id="${escapeHtml(card.id)}" aria-label="Open ${escapeHtml(card.name)} details" style="animation-delay:${Math.min(index * 10, 180)}ms">
@@ -323,7 +315,7 @@ el.nextTop.addEventListener('click', () => changePage(state.page + 1));
 
 function changePage(page) {
   state.page = page;
-  render();
+  applyFilters(false);
   document.querySelector('.explorer').scrollIntoView({ behavior: 'smooth' });
 }
 

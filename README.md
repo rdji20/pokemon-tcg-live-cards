@@ -78,6 +78,15 @@ Generated files:
 - `data/sets.json` — selected set metadata
 - `data/manifest.json` — source commit, policy, counts, warnings, and SHA-256 hashes
 
+Import the generated snapshot into PostgreSQL with an idempotent transaction:
+
+```bash
+ptcgl-catalog import-db
+```
+
+Running the import again updates the same catalog run and upserts the same card
+IDs; it does not duplicate cards or catalog metadata.
+
 ## Open the card browser
 
 The project includes a responsive local web interface with search, filters,
@@ -91,6 +100,11 @@ Then open [http://localhost:8000](http://localhost:8000). Opening `index.html`
 directly from Finder will not work because browsers prevent local HTML files
 from fetching the generated catalog. The local server also powers the
 **Sync cards** button and binds to `127.0.0.1` by default.
+
+The browser queries PostgreSQL through `/api/cards`; it does not download the
+complete JSONL catalog. PostgreSQL provides full-text ranking, trigram fuzzy
+name matching, filters, sorting, and pagination. Standard-legal cards are the
+default view.
 
 ## Local PostgreSQL
 

@@ -25,10 +25,10 @@ PokemonTCG data snapshot
 Python catalog builder -----> JSONL / CSV / SQLite / manifest
           |
           v
-PostgreSQL importer (next) --> PostgreSQL search database
+PostgreSQL importer --------> PostgreSQL search database
                                       |
                                       v
-                                Search/API service (next)
+                                Local search/API service
                                       |
                           +-----------+-----------+
                           |                       |
@@ -56,14 +56,16 @@ record in `jsonb`. It provides:
 - indexed filters for set, release date, and format legality;
 - a future home for decks, simulations, game states, and experiment results.
 
-The initial schema is in `db/init/001_schema.sql`. Docker Compose runs the same
-PostgreSQL major version locally that we can deploy to a managed service later.
+The initial schema is in `db/init/001_schema.sql`, with incremental migrations
+in `db/migrations`. Docker Compose runs the same PostgreSQL major version
+locally that we can deploy to a managed service later.
 
 ### Search/API service
 
-The browser will call an HTTP API instead of downloading the entire card
-catalog. The API will own query parsing, ranking, filtering, and pagination.
-The framework and endpoint contract have not been selected yet.
+The browser calls an HTTP API instead of downloading the entire card catalog.
+The API owns query parsing, weighted full-text and fuzzy ranking, filtering,
+sorting, and pagination. The current service uses Python's standard HTTP server
+for the local application boundary; a hosted framework remains an open choice.
 
 ### Simulation engine
 
@@ -150,6 +152,19 @@ variables and are never committed.
 - Consequence: A hosted deployment must move refreshes to an authenticated
   administrative job or scheduled worker; it must not publish this endpoint
   without access control.
+
+### ADR-006: Store legality as sourced, independent dimensions
+
+- Status: Accepted
+- Date: 2026-09-30
+- Decision: Store `live_status`, `standard_status`, `expanded_status`, and
+  `live_expanded_status` separately. Every imported card also records evidence,
+  the source commit, the policy date, and its verification time.
+- Reason: Presence in TCG Live, Standard legality, physical Expanded legality,
+  and TCG Live Expanded implementation are different facts that can change on
+  different schedules.
+- Consequence: Unknown or unsupported states are explicit rather than inferred
+  as legal. Simulation formats can select the exact status they require.
 
 ## Open decisions
 
