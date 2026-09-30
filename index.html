@@ -1,0 +1,114 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="description" content="Browse the local Pokemon TCG Live card catalog.">
+  <title>TCG Live Card Vault</title>
+  <link rel="icon" href="favicon.svg" type="image/svg+xml">
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Roboto:wght@400;500;700&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="styles.css">
+</head>
+<body>
+  <header class="site-header">
+    <a class="brand" href="#" aria-label="TCG Live Card Vault home">
+      <span class="brand-mark" aria-hidden="true"><i></i></span>
+      <strong>Pokémon TCG Live Cards</strong>
+    </a>
+    <div class="header-count" id="headerCount">Loading…</div>
+  </header>
+
+  <main>
+    <section class="hero">
+      <h1>All cards</h1>
+      <div class="stats" aria-label="Catalog summary">
+        <span><strong id="totalCards">—</strong> cards</span>
+        <span><strong id="standardCards">—</strong> Standard</span>
+        <span><strong id="totalSets">—</strong> sets</span>
+        <span class="latest"><strong id="latestSet">—</strong><small id="latestDate">Latest release</small></span>
+      </div>
+    </section>
+
+    <section class="explorer" aria-labelledby="explorerTitle">
+      <div class="section-heading">
+        <h2 id="explorerTitle">Cards</h2>
+        <p id="resultSummary" aria-live="polite">Preparing your cards…</p>
+      </div>
+
+      <div class="filter-panel">
+        <label class="search-field">
+          <span class="sr-only">Search cards</span>
+          <svg viewBox="0 0 24 24" aria-hidden="true"><path d="m21 21-4.35-4.35m2.35-5.65a8 8 0 1 1-16 0 8 8 0 0 1 16 0Z"/></svg>
+          <input id="searchInput" type="search" placeholder="Search card, set, artist, attack…" autocomplete="off">
+          <kbd>/</kbd>
+        </label>
+        <div class="select-row">
+          <label>
+            <span>Set</span>
+            <select id="setFilter"><option value="">All sets</option></select>
+          </label>
+          <label>
+            <span>Card type</span>
+            <select id="typeFilter">
+              <option value="">All types</option>
+              <option value="Pokémon">Pokémon</option>
+              <option value="Trainer">Trainer</option>
+              <option value="Energy">Energy</option>
+            </select>
+          </label>
+          <label>
+            <span>Format</span>
+            <select id="legalityFilter">
+              <option value="">All Live cards</option>
+              <option value="standard">Standard legal</option>
+              <option value="expanded">Expanded legal</option>
+            </select>
+          </label>
+          <label>
+            <span>Sort by</span>
+            <select id="sortSelect">
+              <option value="newest">Newest first</option>
+              <option value="oldest">Oldest first</option>
+              <option value="name">Name A–Z</option>
+              <option value="set">Set &amp; number</option>
+            </select>
+          </label>
+        </div>
+      </div>
+
+      <div id="loadingState" class="loading-state">
+        <div class="loader"><span></span></div>
+        <p>Loading cards…</p>
+      </div>
+
+      <div id="errorState" class="error-state" hidden>
+        <strong>Couldn’t load the catalog</strong>
+        <p id="errorMessage"></p>
+        <code>python3 -m http.server 8000</code>
+      </div>
+
+      <div id="cardGrid" class="card-grid" hidden></div>
+
+      <nav id="pagination" class="pagination" aria-label="Card pages" hidden>
+        <button id="prevPage" type="button">← Previous</button>
+        <div id="pageNumbers"></div>
+        <button id="nextPage" type="button">Next →</button>
+      </nav>
+    </section>
+  </main>
+
+  <footer>
+    <span>Pokémon TCG Live Cards</span>
+    <p id="sourceCommit">Source pending</p>
+  </footer>
+
+  <dialog id="cardDialog" aria-labelledby="dialogTitle">
+    <button class="dialog-close" type="button" aria-label="Close card details">×</button>
+    <div id="dialogContent"></div>
+  </dialog>
+
+  <script src="app.js" defer></script>
+</body>
+</html>

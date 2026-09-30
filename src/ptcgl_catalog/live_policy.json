@@ -1,0 +1,24 @@
+{
+  "schema_version": 1,
+  "policy_as_of": "2026-09-30",
+  "supported_series": [
+    "Sun & Moon",
+    "Sword & Shield",
+    "Scarlet & Violet",
+    "Mega Evolution"
+  ],
+  "included_set_ids": [],
+  "excluded_set_ids": [
+    "cel25c"
+  ],
+  "notes": {
+    "cel25c": "Pokemon Support says Celebrations: Classic Collection transfers but is not playable in TCG Live.",
+    "me55c": "The 2026 30th Celebration: Classic Collection is included because the official TCG Live announcement says those cards are in the game."
+  },
+  "evidence": [
+    "https://support.pokemon.com/hc/en-us/articles/6489934466708-Pok%C3%A9mon-TCG-Live-Migration-FAQ-from-the-Pok%C3%A9mon-TCG-Online",
+    "https://community.pokemon.com/en-us/discussion/26004/pokemon-tcg-30th-celebration-expansion-release",
+    "https://community.pokemon.com/en-us/discussion/26006/letter-to-the-community-september-15-2026"
+  ]
+}
+

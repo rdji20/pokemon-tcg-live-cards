@@ -1,0 +1,10 @@
+.cache/
+.pytest_cache/
+.venv/
+__pycache__/
+*.py[cod]
+data/*.csv
+data/*.json
+data/*.jsonl
+data/*.sqlite3
+
