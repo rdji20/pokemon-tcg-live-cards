@@ -19,6 +19,9 @@ The card catalog is the data foundation. Planned work includes:
 The initial automation target is the local simulator, so experiments remain
 repeatable and do not depend on controlling the Pokemon TCG Live client.
 
+Architectural decisions and open questions are maintained in
+[`ARCHITECTURE.md`](ARCHITECTURE.md).
+
 ## Why this does not scrape pokemon.com HTML
 
 The official card-search page is protected by a bot challenge and its HTML is
@@ -87,6 +90,22 @@ python3 -m http.server 8000
 Then open [http://localhost:8000](http://localhost:8000). Opening `index.html`
 directly from Finder will not work because browsers prevent local HTML files
 from fetching the generated catalog.
+
+## Local PostgreSQL
+
+PostgreSQL runs locally through Docker and uses the initial search-ready schema
+in `db/init/001_schema.sql`:
+
+```bash
+cp .env.example .env
+docker compose up -d db
+docker compose ps
+```
+
+The default local connection is
+`postgresql://ptcgl:ptcgl_local@localhost:5432/ptcgl`. Change the values in
+`.env` when needed; `.env` is ignored by Git. Hosted environments will use the
+same `DATABASE_URL` interface with credentials supplied by the host.
 
 Example query:
 

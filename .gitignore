@@ -1,10 +1,10 @@
 .cache/
 .pytest_cache/
 .venv/
+.env
 __pycache__/
 *.py[cod]
 data/*.csv
 data/*.json
 data/*.jsonl
 data/*.sqlite3
-
