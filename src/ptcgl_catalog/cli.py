@@ -34,11 +34,6 @@ def _parser() -> argparse.ArgumentParser:
     import_rules = subparsers.add_parser("import-rules", help="Validate and import AI rule drafts")
     import_rules.add_argument("--rules", type=Path, default=Path("rules/generated"))
     import_rules.add_argument("--database-url", default=None)
-    ai_rules = subparsers.add_parser("ai-rules", help="Generate executable Standard card-rule drafts")
-    ai_rules.add_argument("--output", type=Path, default=Path("rules/generated"))
-    ai_rules.add_argument("--limit", type=int, default=25)
-    ai_rules.add_argument("--model", default=None)
-    ai_rules.add_argument("--database-url", default=None)
     serve = subparsers.add_parser("serve", help="Run the local card browser and sync API")
     serve.add_argument("--directory", type=Path, default=Path("."))
     serve.add_argument("--output", type=Path, default=Path("data"))
@@ -103,24 +98,6 @@ def main() -> int:
         result = import_rule_programs(args.rules, args.database_url)
         print(f"Rule drafts: {result['imported']} passed, {result['failed']} failed")
         return 0 if not result["failed"] else 1
-    if args.command == "ai-rules":
-        from .ai_rules import run_ai_rule_pass
-
-        try:
-            result = run_ai_rule_pass(
-                output_dir=args.output,
-                limit=args.limit,
-                url=args.database_url,
-                model=args.model,
-            )
-        except RuntimeError as exc:
-            print(f"error: {exc}")
-            return 1
-        print(
-            f"Generated {len(result['generated'])} AI rule drafts with {result['model']}; "
-            f"{result['imported']} passed validation"
-        )
-        return 0
     try:
         result = build_catalog(
             output_dir=args.output,

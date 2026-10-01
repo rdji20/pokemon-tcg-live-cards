@@ -227,10 +227,12 @@ variables and are never committed.
 
 - Status: Accepted
 - Date: 2026-09-30
-- Decision: Generate candidate programs with strict structured model output,
-  validate them against the source card and supported operation vocabulary,
-  then require password-authenticated human approval. Record every approval or
-  rejection in an append-only audit table.
+- Decision: Run a scheduled Codex task directly against the repository to
+  generate candidate programs in the versioned JSON schema, validate them
+  against the source card and supported operation vocabulary, then require
+  password-authenticated human approval. Record every approval or rejection in
+  an append-only audit table. Do not call a model API from application code or
+  GitHub Actions.
 - Reason: Free-form card text contains timing, replacement effects, choices,
   and unusual interactions. Schema-valid AI output is useful for scale but is
   not sufficient evidence of rules accuracy.

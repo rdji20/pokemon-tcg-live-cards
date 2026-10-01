@@ -189,29 +189,28 @@ ptcgl-catalog report --update-baseline
 
 Card text moves through two independent gates:
 
-1. The AI pass uses the OpenAI Responses API with strict Structured Outputs,
-   then validates card ID, source-text hash, abilities, attacks, attack costs,
-   printed damage, rule boxes, triggers, conditions, and supported operations.
+1. A nightly Codex task works directly in this repository, creates versioned
+   JSON candidates, and validates card ID, source-text hash, abilities,
+   attacks, attack costs, printed damage, rule boxes, triggers, conditions,
+   and supported operations.
 2. A password-authenticated reviewer compares the source text with the
    executable JSON and approves or rejects it. Every decision is written to an
    append-only audit table.
 
 An AI-passed rule is executable but remains a candidate. Only a manually
 approved version is trusted. The first 10 Standard-legal cards are installed as
-AI-passed and pending manual review.
+AI-passed and pending manual review. The nightly task never grants human
+approval and never needs an OpenAI API key in this project.
 
-Run another batch locally with:
+Validate and import candidates created by Codex with:
 
 ```bash
-export OPENAI_API_KEY='your-api-key'
-export OPENAI_RULE_MODEL='gpt-5'
-ptcgl-catalog ai-rules --limit 25
+ptcgl-catalog import-rules
 ```
 
-The nightly workflow performs the same command and opens a pull request with
-new JSON drafts. Add `OPENAI_API_KEY` as a GitHub Actions repository secret to
-enable that step. Without the secret, catalog synchronization continues but AI
-generation is explicitly skipped.
+The Codex desktop automation handles the reasoning pass each night from the
+checked-out repository. GitHub Actions remains responsible only for catalog
+synchronization, PostgreSQL import verification, tests, and change reports.
 
 ## Simulator boundary
 
