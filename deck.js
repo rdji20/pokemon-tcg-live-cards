@@ -2,6 +2,7 @@ const state = { decks: [], deckDetails: new Map(), generatedCards: null, generat
 
 const el = Object.fromEntries([
   'deckCount', 'deckFormat', 'deckName', 'decklist', 'validateButton', 'saveButton',
+  'newDeckButton',
   'validationResult', 'energyType', 'optimizerSeed', 'optimizeButton', 'optimizerResult',
   'refreshDecksButton', 'savedDecks', 'deckA', 'deckB', 'games', 'simulationSeed',
   'policyA', 'policyB', 'simulateButton', 'simulationResult', 'deckMeter',
@@ -72,6 +73,22 @@ function updateDeckShape() {
   else if (total === 60) el.deckShapeNote.textContent = 'The deck box is full. Check legality, then save it.';
   else if (total < 60) el.deckShapeNote.textContent = `${60 - total} card${60 - total === 1 ? '' : 's'} left to add.`;
   else el.deckShapeNote.textContent = `${total - 60} card${total - 60 === 1 ? '' : 's'} over the limit.`;
+}
+
+function startBlankDeck() {
+  state.generatedCards = null;
+  state.generatedComposition = null;
+  el.deckFormat.value = 'standard';
+  el.deckName.value = 'Untitled deck';
+  el.decklist.value = '';
+  el.validationResult.className = 'result-box';
+  el.validationResult.textContent = 'Blank Standard deck ready. Add cards, then check the deck.';
+  el.optimizerResult.className = 'result-box';
+  el.optimizerResult.textContent = 'Quick Build is optional.';
+  updateDeckShape();
+  el.deckName.focus();
+  el.deckName.select();
+  document.getElementById('builderTitle').scrollIntoView({ behavior: 'smooth', block: 'start' });
 }
 
 function showValidation(result) {
@@ -265,6 +282,7 @@ el.decklist.addEventListener('input', () => {
   state.generatedComposition = null;
   updateDeckShape();
 });
+el.newDeckButton.addEventListener('click', startBlankDeck);
 el.validateButton.addEventListener('click', validateDeck);
 el.saveButton.addEventListener('click', saveDeck);
 el.optimizeButton.addEventListener('click', optimize);

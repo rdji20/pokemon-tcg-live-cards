@@ -12,6 +12,10 @@
 .deck-box-heading { min-height: 86px; padding: 20px 24px; display: flex; align-items: center; justify-content: space-between; gap: 20px; color: white; background: #202124; }
 .deck-box-heading .section-kicker { color: #f5cb46; }
 .deck-box-heading h2, .quick-build h2, .section-title-row h2, .arena-heading h2 { margin: 0; font-size: 23px; font-weight: 500; }
+.deck-heading-tools { display: flex; align-items: end; gap: 10px; }
+.new-deck-button { height: 38px; padding: 0 12px; display: flex; align-items: center; gap: 7px; border: 1px solid #5a5f66; border-radius: 6px; color: white; background: #30343a; font-size: 12px; font-weight: 500; }
+.new-deck-button:hover { border-color: #f5cb46; background: #3a3e45; }
+.new-deck-button .mini-ball { flex: 0 0 auto; }
 .format-control { width: 180px; }
 .format-control span { display: block; margin-bottom: 5px; color: #bfc4ca; font-size: 11px; }
 .format-control select { height: 38px; border-color: #4b5058; color: white; background: #2d3035; }
@@ -163,6 +167,8 @@ textarea { min-height: 300px; padding: 13px; resize: vertical; background: #fbfb
   .deck-rule-strip span { padding: 8px; }
   .deck-rule-strip strong { font-size: 17px; }
   .deck-box-heading { padding: 18px; align-items: stretch; flex-direction: column; }
+  .deck-heading-tools { align-items: stretch; flex-direction: column-reverse; }
+  .new-deck-button { justify-content: center; }
   .format-control { width: 100%; }
   .deck-shape { padding: 18px; grid-template-columns: 1fr; }
   .deck-meter { grid-row: auto; margin: 0 auto; }
