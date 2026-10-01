@@ -169,11 +169,18 @@ async function exportDeck(id) {
 
 function populateDeckSelect(select, selectedId) {
   select.replaceChildren();
+  const placeholder = new Option('Choose a deck', '');
+  placeholder.selected = !selectedId;
+  select.add(placeholder);
   for (const deck of state.decks) {
     const option = new Option(`${deck.name} (${deck.card_count})`, deck.id);
     option.selected = deck.id === selectedId;
     select.add(option);
   }
+}
+
+function updateSimulationAvailability() {
+  el.simulateButton.disabled = !(el.deckA.value && el.deckB.value);
 }
 
 function featuredCards(cards = []) {
@@ -245,9 +252,9 @@ async function loadDecks() {
         <div class="saved-deck-actions"><button type="button" data-export="${deck.id}">Load deck</button></div>
       </article>
     `).join('') : '<p class="empty-copy">No saved decks.</p>';
-    populateDeckSelect(el.deckA, previousA || state.decks[0]?.id);
-    populateDeckSelect(el.deckB, previousB || state.decks[1]?.id || state.decks[0]?.id);
-    el.simulateButton.disabled = !state.decks.length;
+    populateDeckSelect(el.deckA, previousA);
+    populateDeckSelect(el.deckB, previousB);
+    updateSimulationAvailability();
     el.simulationResult.textContent = state.decks.length
       ? 'Choose the two decks and run the matchup.'
       : 'Save a deck to the shelf to begin testing.';
@@ -290,8 +297,14 @@ el.saveButton.addEventListener('click', saveDeck);
 el.optimizeButton.addEventListener('click', optimize);
 el.refreshDecksButton.addEventListener('click', loadDecks);
 el.simulateButton.addEventListener('click', simulate);
-el.deckA.addEventListener('change', () => updateArenaDeck(el.deckA, el.deckAName, el.deckACards));
-el.deckB.addEventListener('change', () => updateArenaDeck(el.deckB, el.deckBName, el.deckBCards));
+el.deckA.addEventListener('change', () => {
+  updateSimulationAvailability();
+  updateArenaDeck(el.deckA, el.deckAName, el.deckACards);
+});
+el.deckB.addEventListener('change', () => {
+  updateSimulationAvailability();
+  updateArenaDeck(el.deckB, el.deckBName, el.deckBCards);
+});
 el.savedDecks.addEventListener('click', event => {
   const button = event.target.closest('[data-export]');
   if (button) exportDeck(button.dataset.export);
