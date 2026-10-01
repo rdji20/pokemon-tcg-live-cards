@@ -1,9 +1,10 @@
-const arenaState = { game: null, busy: false };
+const arenaState = { game: null, busy: false, selectedCardUid: null };
 
 const arenaEl = Object.fromEntries([
   'arenaStatus', 'arenaLobby', 'startMatchForm', 'playerDeck', 'opponentType',
   'arenaSeed', 'startMatchButton', 'lobbyMessage', 'gameShell', 'turnStatus',
-  'turnNumber', 'newMatchButton', 'opponentName', 'opponentCounts',
+  'turnNumber', 'newMatchButton', 'gameTable', 'fullscreenButton', 'fullscreenLabel',
+  'battlePhase', 'opponentName', 'opponentCounts', 'opponentHand',
   'opponentBench', 'opponentPrizes', 'opponentActive', 'opponentDeck',
   'playerName', 'playerCounts', 'playerBench', 'playerPrizes', 'playerActive',
   'playerDeckStack', 'playerHand', 'handCount', 'battleMessage', 'actionList',
@@ -34,6 +35,11 @@ function benchSlots(cards) {
   return Array.from({ length: 5 }, (_, index) => window.TcgComponents.battlePokemon(cards[index], 'bench')).join('');
 }
 
+function hiddenHand(count) {
+  const visible = Math.min(count, 9);
+  return `${Array.from({ length: visible }, (_, index) => `<i class="card-back" style="--hand-index:${index};--hand-total:${visible}"></i>`).join('')}<span>${count}</span>`;
+}
+
 function renderPlayer(prefix, player, revealHand = false) {
   arenaEl[`${prefix}Name`].textContent = player.name;
   arenaEl[`${prefix}Counts`].textContent = `${player.deckCount} deck · ${player.handCount} hand · ${player.discardCount} discard`;
@@ -45,6 +51,8 @@ function renderPlayer(prefix, player, revealHand = false) {
   if (revealHand) {
     arenaEl.playerHand.innerHTML = player.hand.map(window.TcgComponents.handCard).join('') || '<p class="empty-hand">Your hand is empty.</p>';
     arenaEl.handCount.textContent = `${player.handCount} card${player.handCount === 1 ? '' : 's'}`;
+  } else {
+    arenaEl.opponentHand.innerHTML = hiddenHand(player.handCount);
   }
 }
 
@@ -54,6 +62,7 @@ function actionGroup(type) {
 
 function renderGame(game) {
   arenaState.game = game;
+  arenaState.selectedCardUid = null;
   arenaEl.arenaLobby.hidden = true;
   arenaEl.gameShell.hidden = false;
   arenaEl.arenaStatus.textContent = game.status === 'finished' ? 'Match finished' : `Turn ${game.turn}`;
@@ -61,6 +70,9 @@ function renderGame(game) {
   arenaEl.turnStatus.textContent = game.status === 'finished'
     ? (game.winner === 'player' ? 'You won' : 'Opponent won')
     : (game.isPlayerTurn ? 'Your turn' : "Opponent's turn");
+  arenaEl.battlePhase.textContent = game.status === 'finished'
+    ? 'Match complete'
+    : (game.isPlayerTurn ? 'Main phase' : 'Opponent thinking');
   arenaEl.battleMessage.textContent = game.status === 'finished'
     ? `${game.winner === 'player' ? 'Victory' : 'Defeat'} · ${String(game.reason || '').replace('_', ' ')}`
     : 'Choose one legal action. An attack ends your turn.';
@@ -118,10 +130,8 @@ async function startMatch(event) {
   }
 }
 
-async function playAction(event) {
-  const button = event.target.closest('[data-action-index]');
-  if (!button || arenaState.busy || !arenaState.game) return;
-  const action = arenaState.game.legalActions[Number(button.dataset.actionIndex)];
+async function submitAction(action) {
+  if (!action || arenaState.busy || !arenaState.game) return;
   arenaState.busy = true;
   arenaEl.actionList.querySelectorAll('button').forEach(item => { item.disabled = true; });
   arenaEl.battleMessage.textContent = action.type === 'attack' || action.type === 'end_turn' ? 'Opponent is choosing its turn…' : 'Applying move…';
@@ -136,7 +146,57 @@ async function playAction(event) {
   }
 }
 
+function playAction(event) {
+  const button = event.target.closest('[data-action-index]');
+  if (!button || !arenaState.game) return;
+  submitAction(arenaState.game.legalActions[Number(button.dataset.actionIndex)]);
+}
+
+function selectHandCard(event) {
+  const card = event.target.closest('[data-card-uid]');
+  if (!card || !arenaState.game || arenaState.busy) return;
+  const cardUid = card.dataset.cardUid;
+  const related = arenaState.game.legalActions
+    .map((action, index) => ({ action, index }))
+    .filter(item => item.action.cardUid === cardUid);
+  arenaEl.playerHand.querySelectorAll('.hand-card').forEach(item => item.classList.toggle('selected', item === card));
+  arenaEl.actionList.querySelectorAll('button').forEach(button => {
+    button.classList.toggle('related', related.some(item => item.index === Number(button.dataset.actionIndex)));
+    button.classList.toggle('unrelated', related.length > 0 && !related.some(item => item.index === Number(button.dataset.actionIndex)));
+  });
+  arenaState.selectedCardUid = related.length ? cardUid : null;
+  arenaEl.battleMessage.textContent = related.length
+    ? (related.some(item => item.action.targetUid) ? 'Now choose a highlighted move or click one of your Pokémon.' : 'Choose the highlighted move to play this card.')
+    : 'That card has no legal play right now.';
+}
+
+function selectPokemon(event) {
+  const pokemon = event.target.closest('[data-pokemon-uid]');
+  if (!pokemon || !arenaState.game || arenaState.busy) return;
+  const targetUid = pokemon.dataset.pokemonUid;
+  const matching = arenaState.game.legalActions.filter(action =>
+    action.targetUid === targetUid && (!arenaState.selectedCardUid || action.cardUid === arenaState.selectedCardUid)
+  );
+  if (matching.length === 1) submitAction(matching[0]);
+}
+
+async function toggleFullscreen() {
+  try {
+    if (document.fullscreenElement === arenaEl.gameTable) await document.exitFullscreen();
+    else await arenaEl.gameTable.requestFullscreen();
+  } catch (error) {
+    arenaEl.battleMessage.textContent = `Fullscreen is unavailable: ${error.message}`;
+  }
+}
+
+function syncFullscreenLabel() {
+  const active = document.fullscreenElement === arenaEl.gameTable;
+  arenaEl.fullscreenLabel.textContent = active ? 'Exit fullscreen' : 'Fullscreen';
+  arenaEl.fullscreenButton.setAttribute('aria-label', active ? 'Exit fullscreen Arena' : 'Enter fullscreen Arena');
+}
+
 function newMatch() {
+  if (document.fullscreenElement) document.exitFullscreen();
   localStorage.removeItem('ptcglArenaSession');
   arenaState.game = null;
   arenaEl.gameShell.hidden = true;
@@ -157,6 +217,14 @@ async function restoreMatch() {
 arenaEl.startMatchForm.addEventListener('submit', startMatch);
 arenaEl.actionList.addEventListener('click', playAction);
 arenaEl.newMatchButton.addEventListener('click', newMatch);
+arenaEl.fullscreenButton.addEventListener('click', toggleFullscreen);
+arenaEl.playerHand.addEventListener('click', selectHandCard);
+arenaEl.playerActive.addEventListener('click', selectPokemon);
+arenaEl.playerBench.addEventListener('click', selectPokemon);
+document.addEventListener('fullscreenchange', syncFullscreenLabel);
+document.addEventListener('keydown', event => {
+  if (event.key.toLowerCase() === 'f' && !['INPUT', 'SELECT', 'TEXTAREA'].includes(document.activeElement?.tagName)) toggleFullscreen();
+});
 arenaEl.playerDeck.addEventListener('change', () => { arenaEl.startMatchButton.disabled = !arenaEl.playerDeck.value; });
 loadDecks();
 restoreMatch();

@@ -10,7 +10,7 @@
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=Roboto:wght@400;500;700&display=swap" rel="stylesheet">
   <link rel="stylesheet" href="styles.css">
-  <link rel="stylesheet" href="arena.css?v=1">
+  <link rel="stylesheet" href="arena.css?v=2">
 </head>
 <body>
   <header class="site-header">
@@ -55,42 +55,78 @@
     </section>
 
     <section class="game-shell" id="gameShell" hidden aria-labelledby="gameTitle">
-      <div class="game-heading">
-        <div><span class="section-kicker">Live match</span><h2 id="gameTitle">Arena board</h2></div>
-        <div class="turn-status"><strong id="turnStatus">Your turn</strong><span id="turnNumber">Turn 1</span></div>
-        <button class="new-match-button" id="newMatchButton" type="button">New match</button>
-      </div>
+      <div class="game-table" id="gameTable">
+        <header class="game-hud">
+          <div class="game-identity">
+            <span class="live-dot" aria-hidden="true"></span>
+            <div><strong id="gameTitle">Arena match</strong><span>arena-0.1.0 · simple-ai-0.1.0</span></div>
+          </div>
+          <div class="turn-status"><strong id="turnStatus">Your turn</strong><span id="turnNumber">Turn 1</span></div>
+          <div class="game-controls">
+            <button id="fullscreenButton" type="button" aria-label="Enter fullscreen Arena"><span class="fullscreen-icon" aria-hidden="true"></span><span id="fullscreenLabel">Fullscreen</span></button>
+            <button id="newMatchButton" type="button">New match</button>
+          </div>
+        </header>
 
-      <div class="arena-layout">
-        <div class="playmat">
-          <section class="player-zone opponent-zone" aria-label="Opponent board">
-            <div class="player-summary"><strong id="opponentName">Opponent</strong><span id="opponentCounts"></span></div>
-            <div class="bench-row" id="opponentBench"></div>
-            <div class="active-row"><div class="prize-stack" id="opponentPrizes" aria-label="Opponent Prize cards"></div><div id="opponentActive"></div><div class="deck-stack" id="opponentDeck"></div></div>
+        <div class="play-surface">
+          <section class="field-side opponent-side" aria-label="Opponent field">
+            <div class="trainer-strip">
+              <div class="player-summary"><span class="player-emblem opponent-emblem" aria-hidden="true"></span><div><strong id="opponentName">Opponent</strong><span id="opponentCounts"></span></div></div>
+              <div class="hidden-hand" id="opponentHand" aria-label="Opponent hand"></div>
+            </div>
+            <div class="field-grid">
+              <aside class="side-zone left-zone"><span>Prizes</span><div class="prize-stack" id="opponentPrizes" aria-label="Opponent Prize cards"></div></aside>
+              <div class="combat-zone">
+                <div class="bench-area"><span class="zone-name">Bench</span><div class="bench-row" id="opponentBench"></div></div>
+                <div class="active-area"><span class="zone-name">Active</span><div id="opponentActive"></div></div>
+              </div>
+              <aside class="side-zone right-zone"><span>Deck</span><div class="deck-stack" id="opponentDeck"></div><span class="discard-label">Discard</span><div class="discard-slot"></div></aside>
+            </div>
           </section>
 
-          <div class="battle-line"><span>VS</span><p id="battleMessage">Choose an action.</p></div>
+          <div class="battle-line">
+            <span class="battle-mark">VS</span>
+            <div><strong id="battlePhase">Main phase</strong><p id="battleMessage">Choose an action.</p></div>
+          </div>
 
-          <section class="player-zone self-zone" aria-label="Your board">
-            <div class="active-row"><div class="prize-stack" id="playerPrizes" aria-label="Your Prize cards"></div><div id="playerActive"></div><div class="deck-stack" id="playerDeckStack"></div></div>
-            <div class="bench-row" id="playerBench"></div>
-            <div class="player-summary"><strong id="playerName">Your deck</strong><span id="playerCounts"></span></div>
+          <section class="field-side player-side" aria-label="Your field">
+            <div class="field-grid">
+              <aside class="side-zone left-zone"><span>Prizes</span><div class="prize-stack" id="playerPrizes" aria-label="Your Prize cards"></div></aside>
+              <div class="combat-zone player-combat">
+                <div class="active-area"><span class="zone-name">Active</span><div id="playerActive"></div></div>
+                <div class="bench-area"><span class="zone-name">Bench</span><div class="bench-row" id="playerBench"></div></div>
+              </div>
+              <aside class="side-zone right-zone"><span>Deck</span><div class="deck-stack" id="playerDeckStack"></div><span class="discard-label">Discard</span><div class="discard-slot"></div></aside>
+            </div>
+            <div class="trainer-strip player-strip">
+              <div class="player-summary"><span class="player-emblem player-emblem-self" aria-hidden="true"></span><div><strong id="playerName">Your deck</strong><span id="playerCounts"></span></div></div>
+            </div>
           </section>
 
-          <section class="hand-zone" aria-labelledby="handTitle"><div class="hand-heading"><h3 id="handTitle">Your hand</h3><span id="handCount">0 cards</span></div><div class="hand-row" id="playerHand"></div></section>
+          <section class="hand-zone" aria-labelledby="handTitle">
+            <div class="hand-heading"><h3 id="handTitle">Your hand</h3><span id="handCount">0 cards</span></div>
+            <div class="hand-row" id="playerHand"></div>
+          </section>
         </div>
 
-        <aside class="action-dock">
-          <section><span class="section-kicker">Legal moves</span><h3>Choose an action</h3><div class="action-list" id="actionList"></div></section>
-          <section class="battle-log"><h3>Battle log</h3><ol id="battleLog"></ol></section>
-          <details class="coverage-note"><summary>Rules coverage</summary><ul id="arenaLimitations"></ul></details>
-        </aside>
+        <section class="command-bar" aria-label="Available actions">
+          <div class="command-title"><span>Legal moves</span><strong>Choose your play</strong></div>
+          <div class="action-list" id="actionList"></div>
+        </section>
+
+        <details class="match-drawer">
+          <summary>Match details</summary>
+          <div class="match-drawer-content">
+            <section class="battle-log"><h3>Battle log</h3><ol id="battleLog"></ol></section>
+            <section class="coverage-note"><h3>Rules coverage</h3><ul id="arenaLimitations"></ul></section>
+          </div>
+        </details>
       </div>
     </section>
   </main>
 
   <footer><span>Pokémon TCG Live Cards</span><p>Build · play · improve</p></footer>
   <script src="components.js?v=2" defer></script>
-  <script src="arena.js?v=1" defer></script>
+  <script src="arena.js?v=2" defer></script>
 </body>
 </html>

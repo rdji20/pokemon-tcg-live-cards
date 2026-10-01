@@ -78,18 +78,23 @@ selects a saved deck automatically.
 Implementations: `TcgComponents.battlePokemon()` and
 `TcgComponents.handCard()` in `components.js`; composition in `arena.html`.
 
-The Arena Board is a playable table, not a dashboard panel. It uses real card
-images for the Active spot, five Bench spots, and the player's hand. Prize and
-deck stacks use compact card geometry, while the dark neutral playmat keeps
-the two sides legible. Red identifies the player side and blue identifies the
-opponent side without tinting the card artwork.
+The Arena Board is a playable table, not a dashboard panel. The opponent field
+occupies the top half, the player field and interactive hand occupy the bottom,
+and the battle line separates them. It uses real card images for both Active
+spots, ten Bench spots, and the player's hand. Prize, deck, discard, and hidden
+opponent-hand zones use compact card geometry. The dark play surface has a
+restrained red player side and blue opponent side without tinting card artwork.
 
 Rules:
 
 - Legal actions come from the server and remain in a fixed action dock.
+- Selecting a hand card highlights its legal actions; selecting a valid field
+  target completes targeted actions such as Energy attachment.
 - Any partially supported attack says `base damage only` in its action label.
 - Never represent an ignored card effect as executed.
 - Match and opponent-policy versions remain visible before play begins.
+- The game table owns its fullscreen control and must return to the exact same
+  state when fullscreen closes. The `F` shortcut mirrors that control.
 - At narrow widths, move the action dock below the board and preserve
   horizontally scrollable hands and Benches rather than shrinking the cards.
 

@@ -58,3 +58,13 @@ def test_primary_navigation_is_identical_and_marks_current_page():
 def test_deck_components_load_before_the_page_controller():
     markup = Path("deck.html").read_text(encoding="utf-8")
     assert markup.index("components.js") < markup.index("deck.js")
+
+
+def test_arena_has_game_field_and_fullscreen_control():
+    markup = Path("arena.html").read_text(encoding="utf-8")
+    assert 'id="gameTable"' in markup
+    assert 'id="fullscreenButton"' in markup
+    assert 'id="opponentHand"' in markup
+    assert 'class="field-side opponent-side"' in markup
+    assert 'class="field-side player-side"' in markup
+    assert markup.index("components.js") < markup.index("arena.js")
