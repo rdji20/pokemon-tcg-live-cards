@@ -224,6 +224,7 @@ def export_deck(deck_id: str, url: str | None = None) -> str:
         rows = connection.execute(
             """
             SELECT dc.quantity, c.name, c.number, c.set_id,
+                   c.supertype,
                    coalesce(s.raw_data->>'ptcgoCode', upper(c.set_id)) AS set_code
             FROM deck_cards dc
             JOIN cards c ON c.id = dc.card_id
@@ -233,4 +234,13 @@ def export_deck(deck_id: str, url: str | None = None) -> str:
             """,
             (deck_id,),
         ).fetchall()
-    return "\n".join(f"{row['quantity']} {row['name']} {row['set_code']} {row['number']}" for row in rows) + "\n"
+    headings = (("Pokémon", "Pokémon"), ("Trainer", "Trainer"), ("Energy", "Energy"))
+    sections: list[str] = []
+    for supertype, heading in headings:
+        items = [row for row in rows if row["supertype"] == supertype]
+        if not items:
+            continue
+        total = sum(row["quantity"] for row in items)
+        lines = [f"{row['quantity']} {row['name']} {row['set_code']} {row['number']}" for row in items]
+        sections.append("\n".join([f"{heading}: {total}", *lines]))
+    return "\n\n".join(sections) + "\n"

@@ -59,7 +59,7 @@ def optimize_deck(payload: dict[str, Any], url: str | None = None) -> dict[str, 
             for row in pool:
                 if row["name"] in used_names:
                     continue
-                chosen.append({"card_id": row["id"], "quantity": quantity, "name": row["name"], "score": round(_score(row), 2)})
+                chosen.append({"card_id": row["id"], "quantity": quantity, "name": row["name"], "supertype": row["supertype"], "score": round(_score(row), 2)})
                 used_names.add(row["name"])
                 if len([item for item in chosen if item["quantity"] == quantity]) >= count:
                     break
@@ -73,13 +73,13 @@ def optimize_deck(payload: dict[str, Any], url: str | None = None) -> dict[str, 
             if row["name"] in used_names:
                 continue
             quantity = min(4, trainer_target)
-            chosen.append({"card_id": row["id"], "quantity": quantity, "name": row["name"], "score": round(_score(row), 2)})
+            chosen.append({"card_id": row["id"], "quantity": quantity, "name": row["name"], "supertype": row["supertype"], "score": round(_score(row), 2)})
             used_names.add(row["name"])
             trainer_target -= quantity
         remaining = 60 - sum(item["quantity"] for item in chosen)
         if energies and remaining > 0:
             energy = energies[0]
-            chosen.append({"card_id": energy["id"], "quantity": remaining, "name": energy["name"], "score": 0})
+            chosen.append({"card_id": energy["id"], "quantity": remaining, "name": energy["name"], "supertype": energy["supertype"], "score": 0})
         total = sum(item["quantity"] for item in chosen)
         result = {
             "algorithmVersion": ALGORITHM_VERSION,

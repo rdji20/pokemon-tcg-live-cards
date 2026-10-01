@@ -87,7 +87,12 @@ class CatalogRequestHandler(SimpleHTTPRequestHandler):
     server: CatalogHTTPServer
 
     def end_headers(self) -> None:
-        if self.path.startswith("/data/") or self.path.startswith("/api/"):
+        request_path = urlparse(self.path).path
+        if (
+            request_path.startswith("/data/")
+            or request_path.startswith("/api/")
+            or request_path.endswith((".html", ".css", ".js", ".svg"))
+        ):
             self.send_header("Cache-Control", "no-store")
         super().end_headers()
 

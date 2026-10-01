@@ -1,10 +1,11 @@
-const state = { decks: [], generatedCards: null };
+const state = { decks: [], generatedCards: null, generatedComposition: null };
 
 const el = Object.fromEntries([
   'deckCount', 'deckFormat', 'deckName', 'decklist', 'validateButton', 'saveButton',
   'validationResult', 'energyType', 'optimizerSeed', 'optimizeButton', 'optimizerResult',
   'refreshDecksButton', 'savedDecks', 'deckA', 'deckB', 'games', 'simulationSeed',
-  'policyA', 'policyB', 'simulateButton', 'simulationResult'
+  'policyA', 'policyB', 'simulateButton', 'simulationResult', 'deckMeter',
+  'totalCount', 'pokemonCount', 'trainerCount', 'energyCount', 'deckShapeNote'
 ].map(id => [id, document.getElementById(id)]));
 
 function escapeHtml(value = '') {
@@ -34,6 +35,44 @@ function draftPayload() {
   return payload;
 }
 
+function compositionFromText(text) {
+  const result = { pokemon: 0, trainer: 0, energy: 0, unknown: 0 };
+  let section = '';
+  for (const rawLine of text.split('\n')) {
+    const line = rawLine.trim();
+    if (!line) continue;
+    const heading = line.match(/^(pok[eé]mon|trainer|energy)(?:\s+cards?)?\s*:/i);
+    if (heading) {
+      const key = heading[1].toLowerCase();
+      section = key.startsWith('pok') ? 'pokemon' : key;
+      continue;
+    }
+    const cardLine = line.match(/^(\d+)\s+(?:×\s+)?/);
+    if (!cardLine) continue;
+    const quantity = Number(cardLine[1]);
+    if (section) result[section] += quantity;
+    else result.unknown += quantity;
+  }
+  return result;
+}
+
+function updateDeckShape() {
+  const composition = state.generatedComposition || compositionFromText(el.decklist.value);
+  const knownTotal = composition.pokemon + composition.trainer + composition.energy;
+  const total = knownTotal + (composition.unknown || 0);
+  el.totalCount.textContent = total;
+  el.pokemonCount.textContent = composition.pokemon;
+  el.trainerCount.textContent = composition.trainer;
+  el.energyCount.textContent = composition.energy;
+  el.deckMeter.style.setProperty('--deck-progress', String(Math.min(100, total / 60 * 100)));
+  el.deckMeter.classList.toggle('complete', total === 60);
+  if (!total) el.deckShapeNote.textContent = 'Paste a deck list to fill the box.';
+  else if (composition.unknown) el.deckShapeNote.textContent = `${total} cards found. Add Pokémon, Trainer, and Energy headings to see the mix.`;
+  else if (total === 60) el.deckShapeNote.textContent = 'The deck box is full. Check legality, then save it.';
+  else if (total < 60) el.deckShapeNote.textContent = `${60 - total} card${60 - total === 1 ? '' : 's'} left to add.`;
+  else el.deckShapeNote.textContent = `${total - 60} card${total - 60 === 1 ? '' : 's'} over the limit.`;
+}
+
 function showValidation(result) {
   const target = result.validation || result;
   const errors = target.errors || [];
@@ -55,7 +94,6 @@ async function saveDeck() {
   try {
     const result = await api('/api/decks', { method: 'POST', body: JSON.stringify(draftPayload()) });
     showValidation(result);
-    state.generatedCards = null;
     await loadDecks();
   } catch (error) {
     showValidation(error.payload || { valid: false, errors: [{ message: error.message }] });
@@ -75,7 +113,13 @@ async function optimize() {
       }),
     });
     state.generatedCards = result.cards.map(card => ({ card_id: card.card_id, quantity: card.quantity }));
+    state.generatedComposition = result.cards.reduce((counts, card) => {
+      const key = card.supertype === 'Pokémon' ? 'pokemon' : String(card.supertype || '').toLowerCase();
+      if (key in counts) counts[key] += card.quantity;
+      return counts;
+    }, { pokemon: 0, trainer: 0, energy: 0 });
     el.decklist.value = result.cards.map(card => `${card.quantity} × ${card.name}`).join('\n');
+    updateDeckShape();
     el.optimizerResult.className = 'result-box success';
     el.optimizerResult.innerHTML = `<strong>${result.cardCount}-card draft ready.</strong> ${result.cards.length} unique prints using ${escapeHtml(result.algorithmVersion)}. Validate it, name it, then save.`;
     await validateDeck();
@@ -90,6 +134,8 @@ async function exportDeck(id) {
     const result = await api(`/api/decks/${id}/export`);
     el.decklist.value = result.decklist;
     state.generatedCards = null;
+    state.generatedComposition = null;
+    updateDeckShape();
     el.decklist.focus();
     await navigator.clipboard?.writeText(result.decklist);
     el.validationResult.className = 'result-box success';
@@ -119,9 +165,10 @@ async function loadDecks() {
     el.deckCount.textContent = `${state.decks.length} saved deck${state.decks.length === 1 ? '' : 's'}`;
     el.savedDecks.innerHTML = state.decks.length ? state.decks.map(deck => `
       <article class="saved-deck">
+        <span class="saved-deck-format">${escapeHtml(deck.format)}</span>
         <strong>${escapeHtml(deck.name)}</strong>
-        <p>${escapeHtml(deck.format)} · ${deck.card_count} cards</p>
-        <div class="saved-deck-actions"><button type="button" data-export="${deck.id}">Export</button></div>
+        <p>${deck.card_count} / 60 cards</p>
+        <div class="saved-deck-actions"><button type="button" data-export="${deck.id}">Load deck</button></div>
       </article>
     `).join('') : '<p class="empty-copy">No saved decks.</p>';
     populateDeckSelect(el.deckA, previousA || state.decks[0]?.id);
@@ -144,15 +191,21 @@ async function simulate() {
         policyA: el.policyA.value, policyB: el.policyB.value,
       }),
     });
+    const deckAPercent = Math.round(result.deckAWins / result.games * 100);
+    const deckBPercent = Math.round(result.deckBWins / result.games * 100);
     el.simulationResult.className = 'result-box success';
-    el.simulationResult.innerHTML = `<strong>${result.games} games complete.</strong> Deck A: ${result.deckAWins} wins · Deck B: ${result.deckBWins} wins · Draws: ${result.draws} · Average: ${result.averageTurns.toFixed(1)} turns.`;
+    el.simulationResult.innerHTML = `<div class="scoreboard"><div><span>Deck A</span><strong>${deckAPercent}%</strong><small>${result.deckAWins} wins</small></div><div class="scoreboard-center"><strong>${result.games}</strong><span>games</span><small>${result.averageTurns.toFixed(1)} turns avg.</small></div><div><span>Deck B</span><strong>${deckBPercent}%</strong><small>${result.deckBWins} wins</small></div></div>${result.draws ? `<p>${result.draws} draw${result.draws === 1 ? '' : 's'}</p>` : ''}`;
   } catch (error) {
     el.simulationResult.className = 'result-box error';
     el.simulationResult.textContent = error.message;
   }
 }
 
-el.decklist.addEventListener('input', () => { state.generatedCards = null; });
+el.decklist.addEventListener('input', () => {
+  state.generatedCards = null;
+  state.generatedComposition = null;
+  updateDeckShape();
+});
 el.validateButton.addEventListener('click', validateDeck);
 el.saveButton.addEventListener('click', saveDeck);
 el.optimizeButton.addEventListener('click', optimize);
@@ -163,4 +216,5 @@ el.savedDecks.addEventListener('click', event => {
   if (button) exportDeck(button.dataset.export);
 });
 
+updateDeckShape();
 loadDecks();
