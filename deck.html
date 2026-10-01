@@ -10,7 +10,7 @@
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=Roboto:wght@400;500;700&display=swap" rel="stylesheet">
   <link rel="stylesheet" href="styles.css">
-  <link rel="stylesheet" href="deck.css?v=2">
+  <link rel="stylesheet" href="deck.css?v=3">
 </head>
 <body>
   <header class="site-header">
@@ -118,17 +118,21 @@
         <span class="model-label">prototype-0.1.0</span>
       </div>
       <div class="matchup">
-        <div class="matchup-side side-a">
-          <span>Deck A</span>
-          <select id="deckA" aria-label="Deck A"></select>
-          <label><span>Decision policy</span><select id="policyA"><option value="greedy">Greedy damage</option><option value="durable">Durable</option><option value="random">Random</option></select></label>
+        <div class="arena-deck side-a">
+          <div class="arena-deck-heading"><span>Deck A</span><strong id="deckAName">Choose a deck</strong></div>
+          <div class="card-lineup" id="deckACards" aria-live="polite"><p>Save a deck to reveal its cards.</p></div>
         </div>
         <div class="versus-mark" aria-hidden="true"><span>VS</span></div>
-        <div class="matchup-side side-b">
-          <span>Deck B</span>
-          <select id="deckB" aria-label="Deck B"></select>
-          <label><span>Decision policy</span><select id="policyB"><option value="greedy">Greedy damage</option><option value="durable">Durable</option><option value="random">Random</option></select></label>
+        <div class="arena-deck side-b">
+          <div class="arena-deck-heading"><span>Deck B</span><strong id="deckBName">Choose a deck</strong></div>
+          <div class="card-lineup" id="deckBCards" aria-live="polite"><p>Save a deck to reveal its cards.</p></div>
         </div>
+      </div>
+      <div class="matchup-settings">
+        <label><span>Deck A</span><select id="deckA" aria-label="Deck A"></select></label>
+        <label><span>Strategy A</span><select id="policyA"><option value="greedy">Greedy damage</option><option value="durable">Durable</option><option value="random">Random</option></select></label>
+        <label><span>Deck B</span><select id="deckB" aria-label="Deck B"></select></label>
+        <label><span>Strategy B</span><select id="policyB"><option value="greedy">Greedy damage</option><option value="durable">Durable</option><option value="random">Random</option></select></label>
       </div>
       <div class="arena-controls">
         <label><span>Games</span><input class="text-input" id="games" type="number" value="100" min="1" max="1000"></label>
@@ -141,6 +145,6 @@
   </main>
 
   <footer><span>Pokémon TCG Live Cards</span><p>Build · save · test</p></footer>
-  <script src="deck.js?v=2" defer></script>
+  <script src="deck.js?v=3" defer></script>
 </body>
 </html>

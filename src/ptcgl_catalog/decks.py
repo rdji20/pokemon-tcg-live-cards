@@ -186,7 +186,7 @@ def get_deck(deck_id: str, url: str | None = None) -> dict[str, Any] | None:
         rows = connection.execute(
             """
             SELECT dc.card_id, dc.quantity, c.name, c.set_id, c.number,
-                   c.supertype, c.raw_data
+                   c.supertype, c.image_small, c.image_large, c.raw_data
             FROM deck_cards dc
             JOIN cards c ON c.id = dc.card_id
             WHERE dc.deck_id = %s

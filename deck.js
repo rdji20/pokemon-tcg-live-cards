@@ -1,11 +1,12 @@
-const state = { decks: [], generatedCards: null, generatedComposition: null };
+const state = { decks: [], deckDetails: new Map(), generatedCards: null, generatedComposition: null };
 
 const el = Object.fromEntries([
   'deckCount', 'deckFormat', 'deckName', 'decklist', 'validateButton', 'saveButton',
   'validationResult', 'energyType', 'optimizerSeed', 'optimizeButton', 'optimizerResult',
   'refreshDecksButton', 'savedDecks', 'deckA', 'deckB', 'games', 'simulationSeed',
   'policyA', 'policyB', 'simulateButton', 'simulationResult', 'deckMeter',
-  'totalCount', 'pokemonCount', 'trainerCount', 'energyCount', 'deckShapeNote'
+  'totalCount', 'pokemonCount', 'trainerCount', 'energyCount', 'deckShapeNote',
+  'deckAName', 'deckBName', 'deckACards', 'deckBCards'
 ].map(id => [id, document.getElementById(id)]));
 
 function escapeHtml(value = '') {
@@ -156,6 +157,60 @@ function populateDeckSelect(select, selectedId) {
   }
 }
 
+function featuredCards(cards = []) {
+  const priority = { 'Pokémon': 0, Trainer: 1, Energy: 2 };
+  return [...cards]
+    .filter(card => card.image_small || card.image_large)
+    .sort((left, right) => {
+      const typeDifference = (priority[left.supertype] ?? 3) - (priority[right.supertype] ?? 3);
+      return typeDifference || right.quantity - left.quantity || left.name.localeCompare(right.name);
+    })
+    .slice(0, 5);
+}
+
+function renderArenaDeck(deck, nameTarget, cardsTarget) {
+  if (!deck) {
+    nameTarget.textContent = 'Choose a deck';
+    cardsTarget.innerHTML = '<p>Save a deck to reveal its cards.</p>';
+    return;
+  }
+  nameTarget.textContent = deck.name;
+  const cards = featuredCards(deck.cards);
+  cardsTarget.innerHTML = cards.length ? cards.map((card, index) => `
+    <figure class="arena-card" style="--card-index: ${index}">
+      <img src="${escapeHtml(card.image_small || card.image_large)}" alt="${escapeHtml(card.name)} card">
+      <figcaption><strong>${escapeHtml(card.name)}</strong><span>×${card.quantity}</span></figcaption>
+    </figure>
+  `).join('') : '<p>No card images are available for this deck.</p>';
+}
+
+async function loadDeckDetail(id) {
+  if (!id) return null;
+  if (!state.deckDetails.has(id)) {
+    const result = await api(`/api/decks/${id}`);
+    state.deckDetails.set(id, result.deck);
+  }
+  return state.deckDetails.get(id);
+}
+
+async function updateArenaDeck(select, nameTarget, cardsTarget) {
+  const summary = state.decks.find(deck => deck.id === select.value);
+  nameTarget.textContent = summary?.name || 'Choose a deck';
+  cardsTarget.innerHTML = summary ? '<p>Dealing cards…</p>' : '<p>Save a deck to reveal its cards.</p>';
+  try {
+    renderArenaDeck(await loadDeckDetail(select.value), nameTarget, cardsTarget);
+  } catch (error) {
+    cardsTarget.innerHTML = `<p>${escapeHtml(error.message)}</p>`;
+  }
+}
+
+async function updateArenaPreviews() {
+  await Promise.all([
+    updateArenaDeck(el.deckA, el.deckAName, el.deckACards),
+    updateArenaDeck(el.deckB, el.deckBName, el.deckBCards),
+  ]);
+}
+
 async function loadDecks() {
   try {
     const result = await api('/api/decks');
@@ -174,6 +229,10 @@ async function loadDecks() {
     populateDeckSelect(el.deckA, previousA || state.decks[0]?.id);
     populateDeckSelect(el.deckB, previousB || state.decks[1]?.id || state.decks[0]?.id);
     el.simulateButton.disabled = !state.decks.length;
+    el.simulationResult.textContent = state.decks.length
+      ? 'Choose the two decks and run the matchup.'
+      : 'Save a deck to the shelf to begin testing.';
+    await updateArenaPreviews();
   } catch (error) {
     el.savedDecks.innerHTML = `<p class="empty-copy">${escapeHtml(error.message)}</p>`;
   }
@@ -211,6 +270,8 @@ el.saveButton.addEventListener('click', saveDeck);
 el.optimizeButton.addEventListener('click', optimize);
 el.refreshDecksButton.addEventListener('click', loadDecks);
 el.simulateButton.addEventListener('click', simulate);
+el.deckA.addEventListener('change', () => updateArenaDeck(el.deckA, el.deckAName, el.deckACards));
+el.deckB.addEventListener('change', () => updateArenaDeck(el.deckB, el.deckBName, el.deckBCards));
 el.savedDecks.addEventListener('click', event => {
   const button = event.target.closest('[data-export]');
   if (button) exportDeck(button.dataset.export);
