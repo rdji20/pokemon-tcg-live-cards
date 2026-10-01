@@ -64,6 +64,8 @@ def test_arena_has_game_field_and_fullscreen_control():
     markup = Path("arena.html").read_text(encoding="utf-8")
     assert 'id="gameTable"' in markup
     assert 'id="fullscreenButton"' in markup
+    assert 'id="setupOverlay"' in markup
+    assert 'id="setupActionList"' in markup
     assert 'id="opponentHand"' in markup
     assert 'class="field-side opponent-side"' in markup
     assert 'class="field-side player-side"' in markup

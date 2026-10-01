@@ -275,8 +275,26 @@ variables and are never committed.
 - Consequence: Core game actions are enforced by the server. Unsupported
   card-specific text is explicitly labeled partial and reported in the UI;
   it must not be silently described as executed. Future releases need durable
-  sessions, player-selected setup, the complete reviewed effect corpus, and a
-  new engine version whenever behavior changes.
+  sessions, the complete reviewed effect corpus, and a new engine version
+  whenever behavior changes.
+
+### ADR-014: Keep one server-authoritative universal rules registry
+
+- Status: Accepted
+- Date: 2026-10-01
+- Decision: Store universal Pokémon TCG rules constants, phase definitions,
+  official-source metadata, and coverage declarations in
+  `src/ptcgl_catalog/game_rules.py`. The Python Arena engine is authoritative;
+  the browser receives phase state and legal actions rather than reimplementing
+  rules in a separate TypeScript or JavaScript module.
+- Reason: Two executable rules implementations would eventually disagree about
+  mulligans, first-turn restrictions, legal actions, or later rule changes.
+  A server authority also keeps automated opponents and human players subject
+  to the same state transitions.
+- Consequence: A universal-rule change increments the core rules version and
+  adds tests. Card-specific behavior stays in the separately reviewed rule
+  program pipeline. The coverage registry must mark unimplemented sections as
+  partial or pending instead of implying complete support.
 
 ## Open decisions
 

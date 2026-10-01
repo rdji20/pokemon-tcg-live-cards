@@ -4,7 +4,8 @@ const arenaEl = Object.fromEntries([
   'arenaStatus', 'arenaLobby', 'startMatchForm', 'playerDeck', 'opponentType',
   'arenaSeed', 'startMatchButton', 'lobbyMessage', 'gameShell', 'turnStatus',
   'turnNumber', 'newMatchButton', 'gameTable', 'fullscreenButton', 'fullscreenLabel',
-  'battlePhase', 'opponentName', 'opponentCounts', 'opponentHand',
+  'battlePhase', 'setupOverlay', 'setupCoin', 'setupStep', 'setupTitle',
+  'setupText', 'setupActionList', 'setupFacts', 'opponentName', 'opponentCounts', 'opponentHand',
   'opponentBench', 'opponentPrizes', 'opponentActive', 'opponentDeck',
   'playerName', 'playerCounts', 'playerBench', 'playerPrizes', 'playerActive',
   'playerDeckStack', 'playerHand', 'handCount', 'battleMessage', 'actionList',
@@ -57,7 +58,34 @@ function renderPlayer(prefix, player, revealHand = false) {
 }
 
 function actionGroup(type) {
-  return ({ attach: 'Energy', bench: 'Bench', evolve: 'Evolution', play_trainer: 'Trainer', retreat: 'Retreat', promote: 'Promotion', attack: 'Attack', end_turn: 'Turn' })[type] || 'Other';
+  return ({ call_coin: 'Coin flip', choose_turn_order: 'Turn order', mulligan_draw: 'Mulligan', choose_active: 'Active', setup_bench: 'Setup Bench', finish_setup: 'Setup', attach: 'Energy', bench: 'Bench', evolve: 'Evolution', play_trainer: 'Trainer', retreat: 'Retreat', promote: 'Promotion', attack: 'Attack', end_turn: 'Turn' })[type] || 'Other';
+}
+
+function actionMarkup(actions, includeGroups = true) {
+  let previousGroup = '';
+  return actions.map((action, index) => {
+    const group = actionGroup(action.type);
+    const heading = includeGroups && group !== previousGroup ? `<span class="action-group">${escapeHtml(group)}</span>` : '';
+    previousGroup = group;
+    return `${heading}<button type="button" data-action-index="${index}" class="action-${escapeHtml(action.type)}">${escapeHtml(action.label)}</button>`;
+  }).join('') || '<p>No actions available.</p>';
+}
+
+function renderSetup(game) {
+  const active = game.status === 'setup';
+  arenaEl.setupOverlay.hidden = !active;
+  if (!active) return;
+  arenaEl.setupStep.textContent = `Match setup · ${String(game.phase).replaceAll('_', ' ')}`;
+  arenaEl.setupTitle.textContent = game.prompt.title;
+  arenaEl.setupText.textContent = game.prompt.text;
+  arenaEl.setupActionList.innerHTML = actionMarkup(game.legalActions, false);
+  arenaEl.setupCoin.className = `setup-coin${game.setup.coinResult ? ` result-${game.setup.coinResult}` : ''}`;
+  const facts = [];
+  if (game.setup.coinCall) facts.push(`You called ${game.setup.coinCall}`);
+  if (game.setup.coinResult) facts.push(`Result: ${game.setup.coinResult}`);
+  if (game.setup.firstPlayer) facts.push(`${game.setup.firstPlayer === 'player' ? 'You go' : 'Opponent goes'} first`);
+  if (game.setup.playerMulligans || game.setup.opponentMulligans) facts.push(`Mulligans: you ${game.setup.playerMulligans}, opponent ${game.setup.opponentMulligans}`);
+  arenaEl.setupFacts.innerHTML = facts.map(fact => `<span>${escapeHtml(fact)}</span>`).join('');
 }
 
 function renderGame(game) {
@@ -65,29 +93,27 @@ function renderGame(game) {
   arenaState.selectedCardUid = null;
   arenaEl.arenaLobby.hidden = true;
   arenaEl.gameShell.hidden = false;
-  arenaEl.arenaStatus.textContent = game.status === 'finished' ? 'Match finished' : `Turn ${game.turn}`;
-  arenaEl.turnNumber.textContent = `Turn ${game.turn}`;
+  arenaEl.arenaStatus.textContent = game.status === 'finished' ? 'Match finished' : (game.status === 'setup' ? 'Match setup' : `Turn ${game.turn}`);
+  arenaEl.turnNumber.textContent = game.status === 'setup' ? 'Setup' : `Turn ${game.turn}`;
   arenaEl.turnStatus.textContent = game.status === 'finished'
     ? (game.winner === 'player' ? 'You won' : 'Opponent won')
-    : (game.isPlayerTurn ? 'Your turn' : "Opponent's turn");
+    : (game.status === 'setup' ? 'Pregame' : (game.isPlayerTurn ? 'Your turn' : "Opponent's turn"));
   arenaEl.battlePhase.textContent = game.status === 'finished'
     ? 'Match complete'
-    : (game.isPlayerTurn ? 'Main phase' : 'Opponent thinking');
+    : (game.status === 'setup' ? game.prompt.title : (game.isPlayerTurn ? 'Main phase' : 'Opponent thinking'));
   arenaEl.battleMessage.textContent = game.status === 'finished'
     ? `${game.winner === 'player' ? 'Victory' : 'Defeat'} · ${String(game.reason || '').replace('_', ' ')}`
-    : 'Choose one legal action. An attack ends your turn.';
+    : (game.status === 'setup' ? game.prompt.text : 'Choose one legal action. An attack ends your turn.');
   renderPlayer('opponent', game.opponent);
   renderPlayer('player', game.player, true);
+  renderSetup(game);
 
-  let previousGroup = '';
-  arenaEl.actionList.innerHTML = game.legalActions.map((action, index) => {
-    const group = actionGroup(action.type);
-    const heading = group !== previousGroup ? `<span class="action-group">${escapeHtml(group)}</span>` : '';
-    previousGroup = group;
-    return `${heading}<button type="button" data-action-index="${index}" class="action-${escapeHtml(action.type)}">${escapeHtml(action.label)}</button>`;
-  }).join('') || '<p>No actions available.</p>';
+  arenaEl.actionList.innerHTML = actionMarkup(game.legalActions);
   arenaEl.battleLog.innerHTML = [...game.log].reverse().map(item => `<li>${escapeHtml(item)}</li>`).join('');
-  arenaEl.arenaLimitations.innerHTML = game.limitations.map(item => `<li>${escapeHtml(item)}</li>`).join('');
+  arenaEl.arenaLimitations.innerHTML = [
+    ...(game.ruleCoverage || []).map(item => `${item.rule}: ${item.status} — ${item.detail}`),
+    ...game.limitations,
+  ].map(item => `<li>${escapeHtml(item)}</li>`).join('');
   localStorage.setItem('ptcglArenaSession', game.sessionId);
 }
 
@@ -133,8 +159,8 @@ async function startMatch(event) {
 async function submitAction(action) {
   if (!action || arenaState.busy || !arenaState.game) return;
   arenaState.busy = true;
-  arenaEl.actionList.querySelectorAll('button').forEach(item => { item.disabled = true; });
-  arenaEl.battleMessage.textContent = action.type === 'attack' || action.type === 'end_turn' ? 'Opponent is choosing its turn…' : 'Applying move…';
+  document.querySelectorAll('[data-action-index]').forEach(item => { item.disabled = true; });
+  arenaEl.battleMessage.textContent = action.type === 'attack' || action.type === 'end_turn' || action.type === 'finish_setup' ? 'Resolving the next game step…' : 'Applying choice…';
   try {
     renderGame(await arenaApi(`/api/arena/sessions/${arenaState.game.sessionId}/actions`, {
       method: 'POST', body: JSON.stringify(action),
@@ -216,6 +242,7 @@ async function restoreMatch() {
 
 arenaEl.startMatchForm.addEventListener('submit', startMatch);
 arenaEl.actionList.addEventListener('click', playAction);
+arenaEl.setupActionList.addEventListener('click', playAction);
 arenaEl.newMatchButton.addEventListener('click', newMatch);
 arenaEl.fullscreenButton.addEventListener('click', toggleFullscreen);
 arenaEl.playerHand.addEventListener('click', selectHandCard);

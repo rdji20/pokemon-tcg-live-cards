@@ -95,6 +95,9 @@ Rules:
 - Match and opponent-policy versions remain visible before play begins.
 - The game table owns its fullscreen control and must return to the exact same
   state when fullscreen closes. The `F` shortcut mirrors that control.
+- Pregame rules use a centered Setup Overlay on the same table. Coin call,
+  turn-order choice, mulligan draws, Active selection, Bench selection, and
+  Prize setup remain visible steps rather than an automatic jump to Turn 1.
 - At narrow widths, move the action dock below the board and preserve
   horizontally scrollable hands and Benches rather than shrinking the cards.
 

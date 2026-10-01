@@ -1,4 +1,5 @@
 from ptcgl_catalog.arena import AI_POLICY_VERSION, ARENA_VERSION, ArenaSession
+from ptcgl_catalog.game_rules import CORE_RULES_VERSION
 
 
 def _card(
@@ -41,6 +42,19 @@ def _deck(owner: str) -> list[dict]:
     return [{"uid": f"{owner}-{index}", "card": card} for index, card in enumerate(cards, 1)]
 
 
+def _finish_setup(session: ArenaSession, *, order: str = "first") -> None:
+    session.apply(next(action for action in session.legal_actions() if action["type"] == "call_coin" and action["choice"] == "heads"))
+    if session.phase == "choose_turn_order":
+        session.apply(next(action for action in session.legal_actions() if action.get("order") == order))
+    if session.phase == "mulligan_draw":
+        session.apply(max(session.legal_actions(), key=lambda action: action["count"]))
+    session.apply(next(action for action in session.legal_actions() if action["type"] == "choose_active"))
+    bench = next((action for action in session.legal_actions() if action["type"] == "setup_bench"), None)
+    if bench:
+        session.apply(bench)
+    session.apply(next(action for action in session.legal_actions() if action["type"] == "finish_setup"))
+
+
 def test_arena_starts_with_core_setup_and_versioned_policy():
     session = ArenaSession(
         player_name="Player",
@@ -52,6 +66,16 @@ def test_arena_starts_with_core_setup_and_versioned_policy():
     state = session.public_state()
     assert state["arenaVersion"] == ARENA_VERSION
     assert state["aiPolicyVersion"] == AI_POLICY_VERSION
+    assert state["coreRulesVersion"] == CORE_RULES_VERSION
+    assert state["status"] == "setup"
+    assert state["phase"] == "coin_call"
+    assert state["player"]["active"] is None
+    assert state["player"]["deckCount"] == 60
+    assert {action["choice"] for action in state["legalActions"]} == {"heads", "tails"}
+
+    _finish_setup(session)
+    state = session.public_state()
+    assert state["status"] == "playing"
     assert state["player"]["active"] is not None
     assert state["opponent"]["active"] is not None
     assert state["player"]["prizesRemaining"] == 6
@@ -67,6 +91,7 @@ def test_arena_returns_to_player_after_simple_ai_turn():
         opponent_deck=_deck("opponent"),
         seed=4,
     )
+    _finish_setup(session)
     attach = next(action for action in session.legal_actions() if action["type"] == "attach")
     session.apply(attach)
     session.apply({"type": "end_turn"})
@@ -84,6 +109,7 @@ def test_player_chooses_replacement_after_opponent_knockout():
         opponent_deck=_deck("opponent"),
         seed=5,
     )
+    _finish_setup(session)
     session.current_player = 1
     session._knock_out(1, 0)
     actions = session.legal_actions()
@@ -103,12 +129,50 @@ def test_unsupported_attack_text_is_visibly_partial():
         opponent_deck=_deck("opponent"),
         seed=6,
     )
+    _finish_setup(session)
     active = session.players[0]["active"]
     active["card"]["attacks"][0]["text"] = "Flip a coin. If heads, prevent all effects of an attack."
     energy = next(item for item in session.players[0]["hand"] if item["card"]["supertype"] == "Energy")
     session.players[0]["hand"].remove(energy)
     active["energy"].append(energy)
     session.turn_number = 3
+    session.players[0]["turnsTaken"] = 2
     attack = next(action for action in session.legal_actions() if action["type"] == "attack")
     assert attack["coverage"] == "partial"
     assert "base damage only" in attack["label"]
+
+
+def test_player_can_choose_to_go_second_after_winning_coin_flip():
+    session = ArenaSession(
+        player_name="Player",
+        player_deck=_deck("player"),
+        opponent_name="Opponent",
+        opponent_deck=_deck("opponent"),
+        seed=1,
+    )
+    session.apply({"type": "call_coin", "choice": "heads"})
+    assert session.phase == "choose_turn_order"
+    session.apply({"type": "choose_turn_order", "order": "second"})
+    assert session.first_player == 1
+    assert session.phase in {"mulligan_draw", "choose_active"}
+
+
+def test_opening_hand_mulligans_until_it_contains_a_basic():
+    found = None
+    for seed in range(50):
+        session = ArenaSession(
+            player_name="Player",
+            player_deck=_deck("player"),
+            opponent_name="Opponent",
+            opponent_deck=_deck("opponent"),
+            seed=seed,
+        )
+        session.apply({"type": "call_coin", "choice": "heads"})
+        if session.phase == "choose_turn_order":
+            session.apply({"type": "choose_turn_order", "order": "first"})
+        if session.mulligans[0] or session.mulligans[1]:
+            found = session
+            break
+    assert found is not None
+    assert any("Basic" in item["card"]["subtypes"] for item in found.players[0]["hand"])
+    assert any("Basic" in item["card"]["subtypes"] for item in found.players[1]["hand"])

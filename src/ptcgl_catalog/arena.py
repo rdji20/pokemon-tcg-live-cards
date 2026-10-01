@@ -10,12 +10,22 @@ import psycopg
 from psycopg.rows import dict_row
 
 from .database import database_url
+from .game_rules import (
+    CORE_RULES_VERSION,
+    MAX_BENCH,
+    OPENING_HAND_SIZE,
+    OFFICIAL_RULEBOOK_URL,
+    PRIZE_COUNT,
+    RULE_COVERAGE,
+    SETUP_PHASES,
+    first_turn_restricted,
+    setup_prompt,
+)
 from .optimization import optimize_deck
 
 
-ARENA_VERSION = "arena-0.1.0"
+ARENA_VERSION = "arena-0.2.0"
 AI_POLICY_VERSION = "simple-ai-0.1.0"
-MAX_BENCH = 5
 _SESSIONS: dict[str, "ArenaSession"] = {}
 _SESSION_LOCK = threading.RLock()
 
@@ -73,7 +83,7 @@ def _load_saved_deck(connection: psycopg.Connection[Any], deck_id: str) -> tuple
     if deck is None:
         raise ValueError("Saved deck was not found")
     if deck["format"] != "standard":
-        raise ValueError("Arena 0.1 supports Standard decks only")
+        raise ValueError("Arena 0.2 supports Standard decks only")
     entries = connection.execute(
         "SELECT card_id, quantity FROM deck_cards WHERE deck_id = %s ORDER BY card_id",
         (deck_id,),
@@ -155,8 +165,15 @@ class ArenaSession:
         self.id = str(uuid4())
         self.seed = seed
         self.rng = random.Random(seed)
-        self.turn_number = 1
+        self.turn_number = 0
         self.current_player = 0
+        self.first_player: int | None = None
+        self.phase = "coin_call"
+        self.coin_call: str | None = None
+        self.coin_result: str | None = None
+        self.coin_winner: int | None = None
+        self.mulligans = [0, 0]
+        self.mulligan_draws_available = 0
         self.winner: int | None = None
         self.reason: str | None = None
         self.pending_promotion: int | None = None
@@ -165,19 +182,7 @@ class ArenaSession:
             self._new_player(player_name, player_deck),
             self._new_player(opponent_name, opponent_deck),
         ]
-        mulligans = [self._opening_hand(player) for player in self.players]
-        for index, player in enumerate(self.players):
-            for _ in range(mulligans[1 - index]):
-                self._draw(player)
-            self._set_up_in_play(player)
-            for _ in range(6):
-                if player["deck"]:
-                    player["prizes"].append(player["deck"].pop())
-        self.log.append(
-            f"Match started. {self.players[0]['name']} goes first. "
-            f"Mulligans: {mulligans[0]}–{mulligans[1]}."
-        )
-        self._begin_turn()
+        self.log.append("Decks are ready. Call heads or tails for the opening coin flip.")
 
     @staticmethod
     def _new_player(name: str, deck: list[dict[str, Any]]) -> dict[str, Any]:
@@ -207,7 +212,7 @@ class ArenaSession:
         self.rng.shuffle(player["deck"])
         while True:
             player["hand"] = []
-            if not self._draw(player, 7):
+            if not self._draw(player, OPENING_HAND_SIZE):
                 raise ValueError("Deck cannot produce a seven-card opening hand")
             if any(_is_basic(item) for item in player["hand"]):
                 return mulligans
@@ -217,6 +222,77 @@ class ArenaSession:
             mulligans += 1
             if mulligans > 100:
                 raise ValueError("Deck could not produce a Basic Pokémon after 100 mulligans")
+
+    def _call_coin(self, choice: str) -> None:
+        if choice not in {"heads", "tails"}:
+            raise ValueError("Coin call must be heads or tails")
+        self.coin_call = choice
+        self.coin_result = self.rng.choice(("heads", "tails"))
+        self.coin_winner = 0 if self.coin_call == self.coin_result else 1
+        self.log.append(f"The coin landed {self.coin_result}. {'You won' if self.coin_winner == 0 else 'The opponent won'} the flip.")
+        if self.coin_winner == 0:
+            self.phase = "choose_turn_order"
+            return
+        self.first_player = 1
+        self.log.append(f"{self.players[1]['name']} chose to go first.")
+        self._prepare_opening_hands()
+
+    def _choose_turn_order(self, order: str) -> None:
+        if order not in {"first", "second"}:
+            raise ValueError("Choose first or second")
+        self.first_player = 0 if order == "first" else 1
+        self.log.append(f"{self.players[0]['name']} chose to go {order}.")
+        self._prepare_opening_hands()
+
+    def _prepare_opening_hands(self) -> None:
+        self.mulligans = [self._opening_hand(player) for player in self.players]
+        self.log.append(
+            f"Opening hands dealt. Mulligans: {self.players[0]['name']} {self.mulligans[0]}, "
+            f"{self.players[1]['name']} {self.mulligans[1]}."
+        )
+        for _ in range(self.mulligans[0]):
+            self._draw(self.players[1])
+        if self.mulligans[0]:
+            self.log.append(f"{self.players[1]['name']} drew {self.mulligans[0]} mulligan bonus card{'s' if self.mulligans[0] != 1 else ''}.")
+        self.mulligan_draws_available = self.mulligans[1]
+        self.phase = "mulligan_draw" if self.mulligan_draws_available else "choose_active"
+
+    def _resolve_mulligan_draw(self, count: int) -> None:
+        if count < 0 or count > self.mulligan_draws_available:
+            raise ValueError("Mulligan bonus draw must be between zero and the available card count")
+        if count:
+            self._draw(self.players[0], count)
+            self.log.append(f"{self.players[0]['name']} drew {count} mulligan bonus card{'s' if count != 1 else ''}.")
+        else:
+            self.log.append(f"{self.players[0]['name']} declined the mulligan bonus draw.")
+        self.mulligan_draws_available = 0
+        self.phase = "choose_active"
+
+    def _choose_active(self, card_uid: str) -> None:
+        player = self.players[0]
+        item = self._find_hand(player, card_uid)
+        if not _is_basic(item):
+            raise ValueError("The Active Pokémon chosen during setup must be Basic")
+        player["hand"].remove(item)
+        player["active"] = _pokemon(item, entered_turn=0)
+        self.phase = "choose_bench"
+        self.log.append(f"{player['name']} chose {item['card']['name']} as the opening Active Pokémon.")
+
+    def _finish_setup(self) -> None:
+        self._set_up_in_play(self.players[1])
+        for player in self.players:
+            for _ in range(PRIZE_COUNT):
+                if not player["deck"]:
+                    raise ValueError("Deck does not contain enough cards to place six Prize cards")
+                player["prizes"].append(player["deck"].pop())
+        self.phase = "playing"
+        self.current_player = int(self.first_player or 0)
+        self.turn_number = 1
+        self.log.append("Both players revealed their setup Pokémon and placed six Prize cards.")
+        self.log.append(f"{self.players[self.current_player]['name']} goes first.")
+        self._begin_turn()
+        if self.current_player == 1 and self.winner is None:
+            self._run_ai_turn()
 
     def _set_up_in_play(self, player: dict[str, Any]) -> None:
         basics = sorted(
@@ -395,7 +471,7 @@ class ArenaSession:
         if resistance and str(resistance.get("value", "")).startswith("-"):
             damage = max(0, damage - int(str(resistance["value"])[1:] or 0))
         defender["active"]["damage"] += damage
-        coverage_note = "" if supported_text else " Card text was not executed in Arena 0.1."
+        coverage_note = "" if supported_text else " Card text was not executed in Arena 0.2."
         self.log.append(f"{active['card']['name']} used {attack['name']} for {damage} damage.{coverage_note}")
         draw_match = re.fullmatch(r"Draw (?:a|1) card\.?", text, re.IGNORECASE)
         draw_many = re.fullmatch(r"Draw (\d+) cards?\.?", text, re.IGNORECASE)
@@ -415,7 +491,14 @@ class ArenaSession:
             if card["supertype"] != "Trainer":
                 continue
             is_supporter = "Supporter" in card["subtypes"]
-            if is_supporter and (player["supporterPlayed"] or (self.turn_number == 1 and player_index == 0)):
+            if is_supporter and (
+                player["supporterPlayed"]
+                or first_turn_restricted(
+                    player_index=player_index,
+                    first_player=self.first_player,
+                    turns_taken=player["turnsTaken"],
+                )
+            ):
                 continue
             if card["name"].startswith("Professor's Research"):
                 actions.append({"type": "play_trainer", "cardUid": item["uid"], "label": f"Play {card['name']}"})
@@ -436,7 +519,11 @@ class ArenaSession:
         if card["supertype"] != "Trainer":
             raise ValueError("That card is not a Trainer")
         if "Supporter" in card["subtypes"]:
-            if player["supporterPlayed"] or (self.turn_number == 1 and player_index == 0):
+            if player["supporterPlayed"] or first_turn_restricted(
+                player_index=player_index,
+                first_player=self.first_player,
+                turns_taken=player["turnsTaken"],
+            ):
                 raise ValueError("That Supporter cannot be played now")
             player["supporterPlayed"] = True
         player["hand"].remove(item)
@@ -455,13 +542,48 @@ class ArenaSession:
             rules = " ".join(card["rules"]).strip()
             match = re.fullmatch(r"Draw (a|\d+) cards?\.?", rules, re.IGNORECASE)
             if not match:
-                raise ValueError("That Trainer's effect is not supported in Arena 0.1")
+                raise ValueError("That Trainer's effect is not supported in Arena 0.2")
             self._draw(player, 1 if match.group(1).lower() == "a" else int(match.group(1)))
         player["discard"].append(item)
         self.log.append(f"{player['name']} played {card['name']}.")
 
     def legal_actions(self, player_index: int = 0) -> list[dict[str, Any]]:
         if self.winner is not None:
+            return []
+        if self.phase == "coin_call":
+            return [
+                {"type": "call_coin", "choice": "heads", "label": "Call heads"},
+                {"type": "call_coin", "choice": "tails", "label": "Call tails"},
+            ]
+        if self.phase == "choose_turn_order":
+            return [
+                {"type": "choose_turn_order", "order": "first", "label": "Go first"},
+                {"type": "choose_turn_order", "order": "second", "label": "Go second"},
+            ]
+        if self.phase == "mulligan_draw":
+            return [
+                {
+                    "type": "mulligan_draw",
+                    "count": count,
+                    "label": "Do not draw" if count == 0 else f"Draw {count} extra",
+                }
+                for count in range(self.mulligan_draws_available + 1)
+            ]
+        if self.phase == "choose_active":
+            return [
+                {"type": "choose_active", "cardUid": item["uid"], "label": f"Active: {item['card']['name']}"}
+                for item in self.players[0]["hand"] if _is_basic(item)
+            ]
+        if self.phase == "choose_bench":
+            actions: list[dict[str, Any]] = []
+            if len(self.players[0]["bench"]) < MAX_BENCH:
+                actions.extend(
+                    {"type": "setup_bench", "cardUid": item["uid"], "label": f"Bench {item['card']['name']}"}
+                    for item in self.players[0]["hand"] if _is_basic(item)
+                )
+            actions.append({"type": "finish_setup", "label": "Finish setup"})
+            return actions
+        if self.phase != "playing":
             return []
         if self.pending_promotion == player_index:
             return [
@@ -491,7 +613,11 @@ class ArenaSession:
                     if target and target["card"]["name"] == evolves_from and target["enteredTurn"] < player["turnsTaken"]:
                         actions.append({"type": "evolve", "cardUid": item["uid"], "targetUid": target["uid"], "label": f"Evolve {evolves_from} → {item['card']['name']}"})
         active = player["active"]
-        if active and not (self.turn_number == 1 and player_index == 0):
+        if active and not first_turn_restricted(
+            player_index=player_index,
+            first_player=self.first_player,
+            turns_taken=player["turnsTaken"],
+        ):
             for index, attack in enumerate(active["card"]["attacks"]):
                 if _can_pay(list(attack.get("cost") or []), active["energy"]):
                     text = str(attack.get("text") or "").strip()
@@ -516,7 +642,7 @@ class ArenaSession:
     def apply(self, action: dict[str, Any]) -> None:
         if self.winner is not None:
             raise ValueError("This match is already over")
-        if self.current_player != 0 and self.pending_promotion != 0:
+        if self.phase == "playing" and self.current_player != 0 and self.pending_promotion != 0:
             raise ValueError("Wait for the opponent's turn to finish")
         allowed = self.legal_actions(0)
         signature = {key: value for key, value in action.items() if key != "label"}
@@ -527,7 +653,19 @@ class ArenaSession:
             raise ValueError("That action is not legal in the current state")
         player = self.players[0]
         kind = str(action.get("type"))
-        if kind == "bench":
+        if kind == "call_coin":
+            self._call_coin(str(action["choice"]))
+        elif kind == "choose_turn_order":
+            self._choose_turn_order(str(action["order"]))
+        elif kind == "mulligan_draw":
+            self._resolve_mulligan_draw(int(action["count"]))
+        elif kind == "choose_active":
+            self._choose_active(str(action["cardUid"]))
+        elif kind == "setup_bench":
+            self._bench(player, str(action["cardUid"]))
+        elif kind == "finish_setup":
+            self._finish_setup()
+        elif kind == "bench":
             self._bench(player, str(action["cardUid"]))
         elif kind == "attach":
             self._attach(player, str(action["cardUid"]), str(action["targetUid"]))
@@ -571,35 +709,57 @@ class ArenaSession:
             (index, attack) for index, attack in enumerate(active["card"]["attacks"])
             if _can_pay(list(attack.get("cost") or []), active["energy"])
         ]
-        if affordable:
+        restricted = first_turn_restricted(
+            player_index=1,
+            first_player=self.first_player,
+            turns_taken=ai["turnsTaken"],
+        )
+        if affordable and not restricted:
             attack_index, _ = max(affordable, key=lambda item: (_printed_damage(item[1]), item[1].get("name", "")))
             self._attack(1, attack_index)
+        elif restricted:
+            self.log.append(f"{ai['name']} cannot attack on the first player's first turn.")
         else:
             self.log.append(f"{ai['name']} could not attack.")
         self._finish_turn()
 
     def public_state(self) -> dict[str, Any]:
         player, opponent = self.players
-        status = "finished" if self.winner is not None else "playing"
+        status = "finished" if self.winner is not None else ("setup" if self.phase in SETUP_PHASES else "playing")
+        prompt = setup_prompt(self.phase, mulligan_draws=self.mulligan_draws_available)
         return {
             "sessionId": self.id,
             "arenaVersion": ARENA_VERSION,
             "aiPolicyVersion": AI_POLICY_VERSION,
+            "coreRulesVersion": CORE_RULES_VERSION,
+            "officialRulebook": OFFICIAL_RULEBOOK_URL,
             "seed": self.seed,
             "status": status,
+            "phase": self.phase,
+            "prompt": prompt,
+            "setup": {
+                "coinCall": self.coin_call,
+                "coinResult": self.coin_result,
+                "coinWinner": None if self.coin_winner is None else ("player" if self.coin_winner == 0 else "opponent"),
+                "firstPlayer": None if self.first_player is None else ("player" if self.first_player == 0 else "opponent"),
+                "playerMulligans": self.mulligans[0],
+                "opponentMulligans": self.mulligans[1],
+                "bonusDrawsAvailable": self.mulligan_draws_available,
+            },
             "turn": self.turn_number,
-            "isPlayerTurn": (self.current_player == 0 or self.pending_promotion == 0) and self.winner is None,
+            "isPlayerTurn": (self.phase in SETUP_PHASES or self.current_player == 0 or self.pending_promotion == 0) and self.winner is None,
             "winner": None if self.winner is None else ("player" if self.winner == 0 else "opponent"),
             "reason": self.reason,
             "player": self._public_player(player, reveal_hand=True),
             "opponent": self._public_player(opponent, reveal_hand=False),
             "legalActions": self.legal_actions(0),
-            "log": self.log[-12:],
+            "log": self.log[-20:],
+            "ruleCoverage": list(RULE_COVERAGE),
             "limitations": [
-                "Arena 0.1 executes core setup, turns, Energy, evolution, retreat, attacks, Weakness, Resistance, Knock Outs, Prizes, and win conditions.",
+                "Arena 0.2 executes the official pregame sequence plus core turns, Energy, evolution, retreat, attacks, Weakness, Resistance, Knock Outs, Prizes, and win conditions.",
                 "The opponent uses a deterministic setup-and-attack policy; it does not search future turns.",
-                "The player goes first; opening Active and Benched Pokémon are selected automatically in Arena 0.1.",
                 "Only simple draw Trainers, Professor's Research, Boss's Orders, and exact draw attack text execute. An attack with other text is labeled base damage only; the omitted effect is never presented as executed.",
+                "Special Conditions and Pokémon Checkup are not executable yet because no supported card program can currently create those states.",
                 "Sessions are local memory and end when the application server restarts.",
             ],
         }

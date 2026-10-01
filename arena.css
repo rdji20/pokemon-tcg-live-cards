@@ -52,6 +52,24 @@
 .game-controls button:hover { background: #2c3740; }
 .fullscreen-icon { width: 13px; height: 13px; display: block; background: linear-gradient(#dce1e5,#dce1e5) left top/5px 1px no-repeat, linear-gradient(#dce1e5,#dce1e5) left top/1px 5px no-repeat, linear-gradient(#dce1e5,#dce1e5) right top/5px 1px no-repeat, linear-gradient(#dce1e5,#dce1e5) right top/1px 5px no-repeat, linear-gradient(#dce1e5,#dce1e5) left bottom/5px 1px no-repeat, linear-gradient(#dce1e5,#dce1e5) left bottom/1px 5px no-repeat, linear-gradient(#dce1e5,#dce1e5) right bottom/5px 1px no-repeat, linear-gradient(#dce1e5,#dce1e5) right bottom/1px 5px no-repeat; }
 
+.setup-overlay { position: absolute; z-index: 10; inset: 54px 0 74px; display: grid; place-items: center; padding: 24px; background: rgba(4,10,14,.72); backdrop-filter: blur(8px); }
+.setup-dialog { width: min(520px, 100%); padding: 30px; border: 1px solid #57636c; border-radius: 14px; text-align: center; background: linear-gradient(180deg, rgba(31,42,50,.98), rgba(16,23,28,.98)); box-shadow: 0 24px 65px rgba(0,0,0,.48); }
+.setup-coin { width: 72px; height: 72px; margin: 0 auto 18px; display: grid; place-items: center; position: relative; border: 4px solid #e1e6e9; border-radius: 50%; color: #162029; background: linear-gradient(145deg,#f3cd48,#c78f20); box-shadow: inset 0 0 0 4px rgba(22,32,41,.28), 0 10px 25px rgba(0,0,0,.3); transition: transform .45s ease; }
+.setup-coin::before { content: "?"; font-size: 28px; font-weight: 700; }
+.setup-coin::after { content: ""; position: absolute; inset: 10px; border: 1px solid rgba(22,32,41,.34); border-radius: 50%; }
+.setup-coin.result-heads { transform: rotateY(180deg); }
+.setup-coin.result-heads::before { content: "H"; transform: rotateY(180deg); }
+.setup-coin.result-tails::before { content: "T"; }
+.setup-dialog > span { color: #92a0aa; font-size: 9px; text-transform: uppercase; }
+.setup-dialog h2 { margin: 7px 0 8px; font-size: 24px; font-weight: 500; }
+.setup-dialog p { max-width: 420px; margin: 0 auto; color: #aeb8c0; font-size: 12px; line-height: 1.5; }
+.setup-actions { margin-top: 22px; display: flex; flex-wrap: wrap; justify-content: center; gap: 8px; }
+.setup-actions button { min-width: 120px; min-height: 40px; padding: 8px 14px; border: 1px solid #65727c; border-radius: 6px; color: #f4f6f7; background: #2a353d; font-size: 11px; }
+.setup-actions button:hover { border-color: #efc944; background: #354149; }
+.setup-actions .action-call_coin, .setup-actions .action-choose_turn_order, .setup-actions .action-finish_setup { border-color: #d4b33d; color: #172027; background: #efc944; }
+.setup-facts { margin-top: 18px; display: flex; flex-wrap: wrap; justify-content: center; gap: 6px; }
+.setup-facts span { padding: 5px 7px; border: 1px solid #46525b; border-radius: 4px; color: #aeb8c0; font-size: 8px; }
+
 .play-surface { min-height: 650px; position: relative; z-index: 2; }
 .field-side { padding: 12px 20px; position: relative; }
 .trainer-strip { min-height: 42px; display: flex; align-items: center; justify-content: space-between; gap: 20px; }
@@ -179,6 +197,10 @@
   .lobby-controls { grid-template-columns: 1fr; }
   .lobby-controls label:first-child { grid-column: auto; }
   .game-hud { padding: 0 10px; }
+  .setup-overlay { padding: 12px; }
+  .setup-dialog { padding: 22px 15px; }
+  .setup-dialog h2 { font-size: 20px; }
+  .setup-actions button { min-width: 100px; }
   .game-identity span:not(.live-dot), .game-controls #fullscreenLabel { display: none; }
   .trainer-strip { gap: 8px; }
   .hidden-hand { min-width: 100px; }

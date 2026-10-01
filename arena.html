@@ -10,7 +10,7 @@
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=Roboto:wght@400;500;700&display=swap" rel="stylesheet">
   <link rel="stylesheet" href="styles.css">
-  <link rel="stylesheet" href="arena.css?v=2">
+  <link rel="stylesheet" href="arena.css?v=3">
 </head>
 <body>
   <header class="site-header">
@@ -36,7 +36,7 @@
         <h1>Play the deck before you buy it.</h1>
         <p>Use any saved Standard deck against a deterministic sparring opponent. The opponent is simple; the rules it claims to support are enforced by the server.</p>
       </div>
-      <div class="arena-versions" aria-label="Arena versions"><span>arena-0.1.0</span><span>simple-ai-0.1.0</span></div>
+      <div class="arena-versions" aria-label="Arena versions"><span>arena-0.2.0</span><span>core-0.2.0</span><span>simple-ai-0.1.0</span></div>
     </section>
 
     <section class="arena-lobby" id="arenaLobby" aria-labelledby="lobbyTitle">
@@ -59,7 +59,7 @@
         <header class="game-hud">
           <div class="game-identity">
             <span class="live-dot" aria-hidden="true"></span>
-            <div><strong id="gameTitle">Arena match</strong><span>arena-0.1.0 · simple-ai-0.1.0</span></div>
+            <div><strong id="gameTitle">Arena match</strong><span>arena-0.2.0 · core-0.2.0 · simple-ai-0.1.0</span></div>
           </div>
           <div class="turn-status"><strong id="turnStatus">Your turn</strong><span id="turnNumber">Turn 1</span></div>
           <div class="game-controls">
@@ -67,6 +67,17 @@
             <button id="newMatchButton" type="button">New match</button>
           </div>
         </header>
+
+        <section class="setup-overlay" id="setupOverlay" hidden aria-live="polite">
+          <div class="setup-dialog">
+            <div class="setup-coin" id="setupCoin" aria-hidden="true"><i></i></div>
+            <span id="setupStep">Match setup</span>
+            <h2 id="setupTitle">Call the opening coin</h2>
+            <p id="setupText">Choose heads or tails. The winner decides who takes the first turn.</p>
+            <div class="setup-actions" id="setupActionList"></div>
+            <div class="setup-facts" id="setupFacts"></div>
+          </div>
+        </section>
 
         <div class="play-surface">
           <section class="field-side opponent-side" aria-label="Opponent field">
@@ -127,6 +138,6 @@
 
   <footer><span>Pokémon TCG Live Cards</span><p>Build · play · improve</p></footer>
   <script src="components.js?v=2" defer></script>
-  <script src="arena.js?v=2" defer></script>
+  <script src="arena.js?v=3" defer></script>
 </body>
 </html>
