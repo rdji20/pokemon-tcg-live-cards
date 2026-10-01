@@ -1,4 +1,4 @@
-const arenaState = { game: null, busy: false, selectedCardUid: null, selectedSource: null };
+const arenaState = { game: null, busy: false, selectedCardUid: null, selectedSource: null, clockReceivedAt: 0, timeoutSent: false };
 
 const arenaEl = Object.fromEntries([
   'arenaStatus', 'arenaLobby', 'startMatchForm', 'playerDeck', 'opponentType',
@@ -7,9 +7,9 @@ const arenaEl = Object.fromEntries([
   'endTurnButton', 'contextMenu', 'contextTitle', 'contextActions', 'contextCancel',
   'battlePhase', 'setupOverlay', 'setupCoin', 'setupStep', 'setupTitle',
   'setupText', 'setupActionList', 'setupFacts', 'opponentName', 'opponentCounts', 'opponentHand',
-  'opponentBench', 'opponentPrizes', 'opponentActive', 'opponentDeck',
+  'opponentBench', 'opponentPrizes', 'opponentActive', 'opponentDeck', 'opponentClock',
   'playerName', 'playerCounts', 'playerBench', 'playerPrizes', 'playerActive',
-  'playerDeckStack', 'playerHand', 'handCount', 'battleMessage',
+  'playerDeckStack', 'playerHand', 'handCount', 'battleMessage', 'playerClock',
   'battleLog', 'arenaLimitations'
 ].map(id => [id, document.getElementById(id)]));
 
@@ -48,6 +48,33 @@ function setupBenchSlots(count) {
 function hiddenHand(count) {
   const visible = Math.min(count, 9);
   return `${Array.from({ length: visible }, (_, index) => `<i class="card-back" style="--hand-index:${index};--hand-total:${visible}"></i>`).join('')}<span>${count}</span>`;
+}
+
+function formatClock(milliseconds) {
+  const totalSeconds = Math.max(0, Math.ceil(milliseconds / 1000));
+  const minutes = Math.floor(totalSeconds / 60);
+  return `${minutes}:${String(totalSeconds % 60).padStart(2, '0')}`;
+}
+
+function renderClocks() {
+  const game = arenaState.game;
+  if (!game?.clocks) return;
+  const elapsed = game.status === 'finished' ? 0 : performance.now() - arenaState.clockReceivedAt;
+  const playerMs = Math.max(0, game.clocks.playerMs - (game.clocks.active === 'player' ? elapsed : 0));
+  const opponentMs = Math.max(0, game.clocks.opponentMs - (game.clocks.active === 'opponent' ? elapsed : 0));
+  for (const [side, element, remaining] of [
+    ['player', arenaEl.playerClock, playerMs],
+    ['opponent', arenaEl.opponentClock, opponentMs],
+  ]) {
+    element.textContent = formatClock(remaining);
+    element.dateTime = `PT${Math.ceil(remaining / 1000)}S`;
+    element.classList.toggle('active', game.clocks.active === side && game.status !== 'finished');
+    element.classList.toggle('urgent', remaining <= 60_000);
+  }
+  if (game.clocks.active === 'player' && playerMs <= 0 && game.status !== 'finished' && !arenaState.timeoutSent) {
+    arenaState.timeoutSent = true;
+    submitAction({ type: 'timeout' });
+  }
 }
 
 function renderPlayer(prefix, player, revealHand = false) {
@@ -121,6 +148,8 @@ function renderSetup(game) {
 
 function renderGame(game) {
   arenaState.game = game;
+  arenaState.clockReceivedAt = performance.now();
+  arenaState.timeoutSent = false;
   document.body.classList.add('arena-playing');
   arenaState.selectedCardUid = null;
   arenaState.selectedSource = null;
@@ -160,6 +189,7 @@ function renderGame(game) {
     ...game.limitations,
   ].map(item => `<li>${escapeHtml(item)}</li>`).join('');
   localStorage.setItem('ptcglArenaSession', game.sessionId);
+  renderClocks();
 }
 
 async function loadDecks() {
@@ -414,3 +444,4 @@ document.addEventListener('keydown', event => {
 arenaEl.playerDeck.addEventListener('change', () => { arenaEl.startMatchButton.disabled = !arenaEl.playerDeck.value; });
 loadDecks();
 restoreMatch();
+setInterval(renderClocks, 250);

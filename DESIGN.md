@@ -116,6 +116,10 @@ Rules:
   finishes placement. Setup Pokémon remain face down until both players reveal.
 - Arena controls use a locked high-contrast palette. Hover, selected, disabled,
   and keyboard-focus states must never reduce label contrast.
+- Each player has a separate, server-authoritative 20-minute Pokémon TCG Live
+  match clock beside their identity. Only the player currently making a game
+  decision loses time; zero is a game loss. The running clock uses a full
+  yellow clock surface, never a standalone status dot.
 - At narrow widths, preserve horizontally scrollable hands and Benches rather
   than shrinking the cards until their art is illegible.
 

@@ -3,6 +3,7 @@ from __future__ import annotations
 import random
 import re
 import threading
+import time
 from typing import Any
 from uuid import uuid4
 
@@ -24,8 +25,9 @@ from .game_rules import (
 from .optimization import optimize_deck
 
 
-ARENA_VERSION = "arena-0.2.1"
+ARENA_VERSION = "arena-0.3.0"
 AI_POLICY_VERSION = "simple-ai-0.1.0"
+MATCH_CLOCK_SECONDS = 20 * 60
 _SESSIONS: dict[str, "ArenaSession"] = {}
 _SESSION_LOCK = threading.RLock()
 
@@ -177,12 +179,36 @@ class ArenaSession:
         self.winner: int | None = None
         self.reason: str | None = None
         self.pending_promotion: int | None = None
+        self.clock_seconds = [float(MATCH_CLOCK_SECONDS), float(MATCH_CLOCK_SECONDS)]
+        self.clock_owner: int | None = 0
+        self.clock_started_at = time.monotonic()
         self.log: list[str] = []
         self.players = [
             self._new_player(player_name, player_deck),
             self._new_player(opponent_name, opponent_deck),
         ]
         self.log.append("Decks are ready. Call heads or tails for the opening coin flip.")
+
+    def _commit_clock(self) -> None:
+        if self.clock_owner is None or self.winner is not None:
+            return
+        now = time.monotonic()
+        owner = self.clock_owner
+        self.clock_seconds[owner] = max(0.0, self.clock_seconds[owner] - max(0.0, now - self.clock_started_at))
+        self.clock_started_at = now
+        if self.clock_seconds[owner] <= 0:
+            self.winner = 1 - owner
+            self.reason = "time_expired"
+            self.phase = "finished"
+            self.log.append(f"{self.players[owner]['name']} ran out of time and loses.")
+            self.clock_owner = None
+
+    def _switch_clock(self, owner: int | None) -> None:
+        self._commit_clock()
+        if self.winner is not None:
+            return
+        self.clock_owner = owner
+        self.clock_started_at = time.monotonic()
 
     @staticmethod
     def _new_player(name: str, deck: list[dict[str, Any]]) -> dict[str, Any]:
@@ -290,6 +316,7 @@ class ArenaSession:
         self.turn_number = 1
         self.log.append("Both players revealed their setup Pokémon and placed six Prize cards.")
         self.log.append(f"{self.players[self.current_player]['name']} goes first.")
+        self._switch_clock(self.current_player)
         self._begin_turn()
         if self.current_player == 1 and self.winner is None:
             self._run_ai_turn()
@@ -325,6 +352,7 @@ class ArenaSession:
             return
         self.current_player = 1 - self.current_player
         self.turn_number += 1
+        self._switch_clock(self.current_player)
         self._begin_turn()
         if self.current_player == 1 and self.winner is None:
             self._run_ai_turn()
@@ -640,8 +668,9 @@ class ArenaSession:
         return actions
 
     def apply(self, action: dict[str, Any]) -> None:
+        self._commit_clock()
         if self.winner is not None:
-            raise ValueError("This match is already over")
+            return
         if self.phase == "playing" and self.current_player != 0 and self.pending_promotion != 0:
             raise ValueError("Wait for the opponent's turn to finish")
         allowed = self.legal_actions(0)
@@ -722,8 +751,11 @@ class ArenaSession:
         else:
             self.log.append(f"{ai['name']} could not attack.")
         self._finish_turn()
+        if self.pending_promotion == 0:
+            self._switch_clock(0)
 
     def public_state(self) -> dict[str, Any]:
+        self._commit_clock()
         player, opponent = self.players
         status = "finished" if self.winner is not None else ("setup" if self.phase in SETUP_PHASES else "playing")
         prompt = setup_prompt(self.phase, mulligan_draws=self.mulligan_draws_available)
@@ -750,6 +782,12 @@ class ArenaSession:
             "isPlayerTurn": (self.phase in SETUP_PHASES or self.current_player == 0 or self.pending_promotion == 0) and self.winner is None,
             "winner": None if self.winner is None else ("player" if self.winner == 0 else "opponent"),
             "reason": self.reason,
+            "clocks": {
+                "initialMs": MATCH_CLOCK_SECONDS * 1000,
+                "playerMs": round(self.clock_seconds[0] * 1000),
+                "opponentMs": round(self.clock_seconds[1] * 1000),
+                "active": None if self.winner is not None or self.clock_owner is None else ("player" if self.clock_owner == 0 else "opponent"),
+            },
             "player": self._public_player(player, reveal_hand=True),
             "opponent": self._public_player(opponent, reveal_hand=False),
             "legalActions": self.legal_actions(0),

@@ -1,4 +1,5 @@
-from ptcgl_catalog.arena import AI_POLICY_VERSION, ARENA_VERSION, ArenaSession
+from ptcgl_catalog import arena as arena_module
+from ptcgl_catalog.arena import AI_POLICY_VERSION, ARENA_VERSION, MATCH_CLOCK_SECONDS, ArenaSession
 from ptcgl_catalog.game_rules import CORE_RULES_VERSION
 
 
@@ -72,6 +73,10 @@ def test_arena_starts_with_core_setup_and_versioned_policy():
     assert state["player"]["active"] is None
     assert state["player"]["deckCount"] == 60
     assert {action["choice"] for action in state["legalActions"]} == {"heads", "tails"}
+    assert state["clocks"]["initialMs"] == MATCH_CLOCK_SECONDS * 1000
+    assert MATCH_CLOCK_SECONDS * 1000 - 1000 < state["clocks"]["playerMs"] <= MATCH_CLOCK_SECONDS * 1000
+    assert state["clocks"]["opponentMs"] == MATCH_CLOCK_SECONDS * 1000
+    assert state["clocks"]["active"] == "player"
 
     _finish_setup(session)
     state = session.public_state()
@@ -81,6 +86,25 @@ def test_arena_starts_with_core_setup_and_versioned_policy():
     assert state["player"]["prizesRemaining"] == 6
     assert state["opponent"]["prizesRemaining"] == 6
     assert not any(action["type"] == "attack" for action in state["legalActions"])
+
+
+def test_player_loses_when_their_match_clock_expires(monkeypatch):
+    now = [100.0]
+    monkeypatch.setattr(arena_module.time, "monotonic", lambda: now[0])
+    session = ArenaSession(
+        player_name="Player",
+        player_deck=_deck("player"),
+        opponent_name="Opponent",
+        opponent_deck=_deck("opponent"),
+        seed=9,
+    )
+    now[0] += MATCH_CLOCK_SECONDS + 1
+    state = session.public_state()
+    assert state["status"] == "finished"
+    assert state["winner"] == "opponent"
+    assert state["reason"] == "time_expired"
+    assert state["clocks"]["playerMs"] == 0
+    assert state["clocks"]["active"] is None
 
 
 def test_arena_returns_to_player_after_simple_ai_turn():

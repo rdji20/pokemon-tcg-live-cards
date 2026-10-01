@@ -97,6 +97,9 @@
 .player-emblem { width: 27px; height: 27px; display: block; position: relative; overflow: hidden; border: 2px solid #0e151a; border-radius: 50%; background: linear-gradient(#2a78a8 0 44%, #11181d 44% 56%, #f4f6f7 56%); box-shadow: 0 0 0 1px rgba(255,255,255,.25); }
 .player-emblem::after { content: ""; width: 7px; height: 7px; position: absolute; top: 50%; left: 50%; border: 2px solid #11181d; border-radius: 50%; background: white; transform: translate(-50%,-50%); }
 .player-emblem-self { background: linear-gradient(#d84740 0 44%, #11181d 44% 56%, #f4f6f7 56%); }
+.player-clock { min-width: 76px; padding: 7px 10px; border: 1px solid #66737c; border-radius: 6px; color: #dce3e8; background: rgba(12,18,22,.8); font-size: 16px; font-weight: 700; font-variant-numeric: tabular-nums; text-align: center; }
+.player-clock.active { border-color: #efc944; color: #172027; background: #efc944; }
+.player-clock.urgent { border-color: #ef5a50; color: white; background: #a8332d; }
 .hidden-hand { height: 42px; min-width: 140px; display: flex; align-items: center; justify-content: flex-end; position: relative; padding-right: 28px; }
 .hidden-hand .card-back { width: 27px; height: 38px; margin-left: -16px; display: block; position: relative; border: 1px solid #bac4cc; border-radius: 3px; background: radial-gradient(circle, white 0 3px, #13212c 4px 6px, transparent 7px), linear-gradient(#376c99 0 47%, #14212b 47% 53%, #e0e7eb 53%); box-shadow: 0 2px 5px rgba(0,0,0,.35); transform: rotate(calc((var(--hand-index) - (var(--hand-total) - 1)/2) * 2deg)); }
 .hidden-hand > span { min-width: 21px; height: 21px; display: grid; place-items: center; position: absolute; right: 0; border: 1px solid #59656e; border-radius: 50%; color: white; background: #202830; font-size: 9px; }
@@ -216,6 +219,7 @@ body.arena-playing .battle-pokemon-state strong { font-size: 12px; }
 body.arena-playing .battle-pokemon-state > span,
 body.arena-playing .battle-pokemon-state small { font-size: 10px; }
 body.arena-playing .trainer-strip { min-height: 34px; }
+body.arena-playing .player-clock { min-width: 96px; padding: 8px 13px; font-size: 20px; }
 body.arena-playing .player-summary strong { font-size: 14px; }
 body.arena-playing .player-summary div span { font-size: 11px; }
 body.arena-playing .side-zone { font-size: 10px; }

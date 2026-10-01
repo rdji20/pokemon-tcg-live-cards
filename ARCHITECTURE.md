@@ -296,6 +296,26 @@ variables and are never committed.
   program pipeline. The coverage registry must mark unimplemented sections as
   partial or pending instead of implying complete support.
 
+### ADR-015: Model Pokémon TCG Live timing as per-player clocks
+
+- Status: Accepted
+- Date: 2026-10-01
+- Decision: Arena gives each player a separate 20-minute match clock. The
+  server owns remaining time and subtracts elapsed monotonic time only from the
+  player currently required to decide, including setup. The browser interpolates
+  that authoritative snapshot for a smooth display and reports expiration; the
+  server decides the time-loss result.
+- Evidence: The official [Pokémon TCG Live 1.20.0 release notes](https://community.pokemon.com/fr-fr/discussion/13954/notes-de-mise-a-jour-du-jcc-pokemon-live-1-20-0)
+  reduced the match timer from 25 minutes to 20 minutes. Live uses separate
+  player clocks rather than an in-person shared tournament-round timer.
+- Reason: A browser-only countdown would reset on refresh, drift from game
+  state, and could not enforce a deterministic loss. A shared tournament timer
+  would model physical organized play rather than Pokémon TCG Live.
+- Consequence: Match-clock behavior increments the Arena version independently
+  of the universal card-game rules version. The shorter inactivity decision
+  timer remains a separate future anti-stall mechanism until its exact current
+  client behavior is documented and tested.
+
 ## Open decisions
 
 - Python HTTP framework and API contract.

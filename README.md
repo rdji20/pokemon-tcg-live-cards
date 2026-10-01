@@ -248,7 +248,7 @@ Bench timing, or the long tail of card-specific effects. Every simulation
 result states these limitations so prototype output is not mistaken for a
 complete TCG rules judgment.
 
-Interactive Arena `arena-0.2.1` is a separate engine checkpoint. It starts with
+Interactive Arena `arena-0.3.0` is a separate engine checkpoint. It starts with
 the official pregame sequence: coin call, the winner's first-or-second choice,
 seven-card opening hands, repeated no-Basic mulligans, optional bonus draws,
 player-selected Active and Bench Pokémon, and six Prize cards. It then enforces
@@ -256,9 +256,10 @@ Energy costs, evolution timing, one Energy attachment and retreat per turn,
 Weakness, Resistance, Knock Outs, Prize taking, promotion choice, first-turn
 restrictions, and the principal win conditions. Its opponent is
 `simple-ai-0.1.0`: a deterministic setup, attach, and highest-printed-damage
-policy. The long tail of card-specific text and Abilities is not complete;
-partial attacks say `base damage only` and the Rules coverage panel lists the
-boundary.
+policy. Each side has a separate server-authoritative 20-minute Pokémon TCG
+Live match clock, and reaching zero is a game loss. The long tail of
+card-specific text and Abilities is not complete; partial attacks say `base
+damage only` and the Rules coverage panel lists the boundary.
 
 Universal rules constants and coverage live in
 `src/ptcgl_catalog/game_rules.py`. Executable card programs remain in the
