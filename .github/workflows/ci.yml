@@ -18,6 +18,7 @@ jobs:
       - run: pytest -q
       - run: node --check app.js
       - run: node --check deck.js
+      - run: node --check review.js
 
   postgres-integration:
     runs-on: ubuntu-latest
@@ -56,7 +57,9 @@ jobs:
               cards = connection.execute("select count(*) from cards where active").fetchone()[0]
               effects = connection.execute("select count(*) from card_effects").fetchone()[0]
               runs = connection.execute("select count(*) from catalog_runs").fetchone()[0]
+              rule_drafts = connection.execute("select count(*) from card_rule_versions where ai_status = 'passed'").fetchone()[0]
           assert cards > 10_000
           assert effects == cards
           assert runs == 1
+          assert rule_drafts >= 10
           PY

@@ -1,0 +1,231 @@
+[
+  {
+    "schemaVersion": 1,
+    "cardId": "me5-1",
+    "sourceTextHash": "d93f4411ebc920d3aa163a04dc4180e2fe10db03ae4aa03b8b64b1a8788acef0",
+    "generatedBy": {"provider": "openai-codex", "model": "gpt-6-astra", "responseId": "", "generatedAt": "2026-09-30T23:30:00Z"},
+    "confidence": "high",
+    "rules": [
+      {
+        "id": "attack-fruity-aroma", "sourceType": "attack", "sourceName": "Fruity Aroma", "trigger": "attack", "cost": ["Colorless"], "conditions": [],
+        "effects": [
+          {"op": "inspect_top_deck", "target": "self.deck", "amount": 6, "value": "", "conditions": [], "parameters": []},
+          {"op": "choose_cards", "target": "inspected_cards", "amount": 6, "value": "zero_to_all", "conditions": [], "parameters": [{"key": "filter.supertype", "value": "Pokémon"}, {"key": "destination", "value": "self.hand"}]},
+          {"op": "shuffle_cards", "target": "unchosen_inspected_cards", "amount": 0, "value": "", "conditions": [], "parameters": [{"key": "destination", "value": "self.deck"}]}
+        ]
+      },
+      {
+        "id": "attack-solar-beam", "sourceType": "attack", "sourceName": "Solar Beam", "trigger": "attack", "cost": ["Grass", "Colorless"], "conditions": [],
+        "effects": [{"op": "deal_damage", "target": "opponent.active", "amount": 60, "value": "", "conditions": [], "parameters": []}]
+      }
+    ],
+    "unsupportedText": [],
+    "notes": "All printed attack text and damage represented. Fruity Aroma leaves the selected Pokémon count to the action policy."
+  },
+  {
+    "schemaVersion": 1,
+    "cardId": "me5-10",
+    "sourceTextHash": "16376a74580afa00bc733699ebbde916b4bbc512c6657a25f6259505f7649d8c",
+    "generatedBy": {"provider": "openai-codex", "model": "gpt-6-astra", "responseId": "", "generatedAt": "2026-09-30T23:30:00Z"},
+    "confidence": "high",
+    "rules": [
+      {
+        "id": "attack-controlled-burn", "sourceType": "attack", "sourceName": "Controlled Burn", "trigger": "attack", "cost": ["Fire"], "conditions": [],
+        "effects": [{"op": "discard_cards", "target": "opponent.deck.top", "amount": 2, "value": "", "conditions": [], "parameters": [{"key": "destination", "value": "opponent.discard"}]}]
+      },
+      {
+        "id": "attack-heat-tackle", "sourceType": "attack", "sourceName": "Heat Tackle", "trigger": "attack", "cost": ["Fire", "Colorless", "Colorless", "Colorless"], "conditions": [],
+        "effects": [
+          {"op": "deal_damage", "target": "opponent.active", "amount": 160, "value": "", "conditions": [], "parameters": []},
+          {"op": "deal_damage", "target": "self", "amount": 30, "value": "attack_effect", "conditions": [], "parameters": [{"key": "apply_weakness_resistance", "value": "false"}]}
+        ]
+      }
+    ],
+    "unsupportedText": [],
+    "notes": "Opponent deck discard and self-damage are explicit operations."
+  },
+  {
+    "schemaVersion": 1,
+    "cardId": "me5-100",
+    "sourceTextHash": "7fcaa60431e966ea1dc3423453b39bf372b8d9ffb570aa7077ef4e0570779ed6",
+    "generatedBy": {"provider": "openai-codex", "model": "gpt-6-astra", "responseId": "", "generatedAt": "2026-09-30T23:30:00Z"},
+    "confidence": "high",
+    "rules": [
+      {
+        "id": "ability-destructive-headbutting", "sourceType": "ability", "sourceName": "Destructive Headbutting", "trigger": "activate_ability", "cost": [],
+        "conditions": [{"field": "self.location", "operator": "equals", "value": "active"}, {"field": "turn.ability_used.ability-destructive-headbutting", "operator": "not_equals", "value": "true"}],
+        "effects": [
+          {"op": "flip_coin", "target": "coin", "amount": 1, "value": "", "conditions": [], "parameters": []},
+          {"op": "discard_energy", "target": "opponent.active", "amount": 1, "value": "", "conditions": [{"field": "coin", "operator": "equals", "value": "heads"}], "parameters": [{"key": "selection", "value": "player_choice"}]}
+        ]
+      },
+      {
+        "id": "attack-rowdy-hammer", "sourceType": "attack", "sourceName": "Rowdy Hammer", "trigger": "attack", "cost": ["Fighting", "Fighting"], "conditions": [],
+        "effects": [
+          {"op": "deal_damage", "target": "opponent.active", "amount": 150, "value": "", "conditions": [], "parameters": []},
+          {"op": "create_modifier", "target": "self.attacks.damage", "amount": 150, "value": "add", "conditions": [], "parameters": [{"key": "duration", "value": "during_self_next_turn"}, {"key": "timing", "value": "before_weakness_resistance"}]}
+        ]
+      },
+      {
+        "id": "rule-pokemon-ex", "sourceType": "rule_box", "sourceName": "Pokémon ex rule", "trigger": "on_knockout", "cost": [], "conditions": [],
+        "effects": [{"op": "set_prize_value", "target": "self", "amount": 2, "value": "", "conditions": [], "parameters": []}]
+      }
+    ],
+    "unsupportedText": [],
+    "notes": "Once-per-turn Active Spot condition, coin branch, next-turn modifier, and ex prize value represented."
+  },
+  {
+    "schemaVersion": 1,
+    "cardId": "me5-101",
+    "sourceTextHash": "8bfa73d325b86c961b5be39be133c2165666efda0297a51b0f2adab3e657e995",
+    "generatedBy": {"provider": "openai-codex", "model": "gpt-6-astra", "responseId": "", "generatedAt": "2026-09-30T23:30:00Z"},
+    "confidence": "high",
+    "rules": [
+      {
+        "id": "attack-dusk-raid", "sourceType": "attack", "sourceName": "Dusk Raid", "trigger": "attack", "cost": ["Darkness", "Darkness"], "conditions": [],
+        "effects": [
+          {"op": "deal_damage", "target": "opponent.active", "amount": 110, "value": "", "conditions": [], "parameters": []},
+          {"op": "deal_damage", "target": "opponent.active", "amount": 110, "value": "bonus", "conditions": [{"field": "self.bench.has_damage_counters", "operator": "equals", "value": "true"}], "parameters": [{"key": "timing", "value": "before_weakness_resistance"}]}
+        ]
+      },
+      {
+        "id": "attack-abyss-eye", "sourceType": "attack", "sourceName": "Abyss Eye", "trigger": "attack", "cost": ["Darkness", "Darkness", "Darkness"], "conditions": [],
+        "effects": [{"op": "knockout", "target": "opponent.active", "amount": 0, "value": "", "conditions": [{"field": "opponent.active.special_condition", "operator": "exists", "value": ""}], "parameters": [{"key": "cause", "value": "attack_effect"}]}]
+      },
+      {
+        "id": "rule-mega-ex", "sourceType": "rule_box", "sourceName": "Mega Evolution ex Rule", "trigger": "on_knockout", "cost": [], "conditions": [],
+        "effects": [{"op": "set_prize_value", "target": "self", "amount": 3, "value": "", "conditions": [], "parameters": []}]
+      }
+    ],
+    "unsupportedText": [],
+    "notes": "Conditional bonus damage, Special Condition knockout, and Mega ex prize rule represented."
+  },
+  {
+    "schemaVersion": 1,
+    "cardId": "me5-102",
+    "sourceTextHash": "bc072420f208668c3dc83029419e8275ab6d2d600ea200a50575cd905d6afce1",
+    "generatedBy": {"provider": "openai-codex", "model": "gpt-6-astra", "responseId": "", "generatedAt": "2026-09-30T23:30:00Z"},
+    "confidence": "high",
+    "rules": [
+      {
+        "id": "attack-wheely-draw", "sourceType": "attack", "sourceName": "Wheely Draw", "trigger": "attack", "cost": ["Darkness"], "conditions": [],
+        "effects": [
+          {"op": "shuffle_zone_into_deck", "target": "self.hand", "amount": 0, "value": "all", "conditions": [], "parameters": []},
+          {"op": "draw_cards", "target": "self", "amount": 6, "value": "", "conditions": [], "parameters": []}
+        ]
+      },
+      {
+        "id": "attack-hangry-blaster", "sourceType": "attack", "sourceName": "Hangry Blaster", "trigger": "attack", "cost": ["Darkness", "Darkness"], "conditions": [],
+        "effects": [
+          {"op": "deal_damage", "target": "opponent.active", "amount": 40, "value": "", "conditions": [], "parameters": []},
+          {"op": "create_modifier", "target": "current_attack.damage", "amount": 40, "value": "multiply", "conditions": [], "parameters": [{"key": "multiplier_field", "value": "self.damage_counters"}, {"key": "timing", "value": "before_weakness_resistance"}]}
+        ]
+      },
+      {
+        "id": "rule-pokemon-ex", "sourceType": "rule_box", "sourceName": "Pokémon ex rule", "trigger": "on_knockout", "cost": [], "conditions": [],
+        "effects": [{"op": "set_prize_value", "target": "self", "amount": 2, "value": "", "conditions": [], "parameters": []}]
+      }
+    ],
+    "unsupportedText": [],
+    "notes": "Hand shuffle occurs before drawing six; dynamic damage uses the current damage-counter count."
+  },
+  {
+    "schemaVersion": 1,
+    "cardId": "me5-103",
+    "sourceTextHash": "9dfd48cfe05fcdc50d3914f4abf0b0ea85413b7b5aa5f49d018612781b27e5ce",
+    "generatedBy": {"provider": "openai-codex", "model": "gpt-6-astra", "responseId": "", "generatedAt": "2026-09-30T23:30:00Z"},
+    "confidence": "high",
+    "rules": [
+      {
+        "id": "attack-undermine", "sourceType": "attack", "sourceName": "Undermine", "trigger": "attack", "cost": ["Metal", "Metal"], "conditions": [],
+        "effects": [
+          {"op": "deal_damage", "target": "opponent.active", "amount": 90, "value": "", "conditions": [], "parameters": []},
+          {"op": "discard_cards", "target": "opponent.deck.top", "amount": 2, "value": "", "conditions": [], "parameters": [{"key": "destination", "value": "opponent.discard"}]}
+        ]
+      },
+      {
+        "id": "attack-maximum-drilling", "sourceType": "attack", "sourceName": "Maximum Drilling", "trigger": "attack", "cost": ["Metal", "Metal", "Metal"], "conditions": [],
+        "effects": [
+          {"op": "deal_damage", "target": "opponent.active", "amount": 200, "value": "", "conditions": [], "parameters": []},
+          {"op": "deal_damage", "target": "opponent.active", "amount": 130, "value": "bonus", "conditions": [{"field": "self.extra_energy_count", "operator": "at_least", "value": "2"}], "parameters": [{"key": "timing", "value": "before_weakness_resistance"}]}
+        ]
+      },
+      {
+        "id": "rule-mega-ex", "sourceType": "rule_box", "sourceName": "Mega Evolution ex Rule", "trigger": "on_knockout", "cost": [], "conditions": [],
+        "effects": [{"op": "set_prize_value", "target": "self", "amount": 3, "value": "", "conditions": [], "parameters": []}]
+      }
+    ],
+    "unsupportedText": [],
+    "notes": "Maximum Drilling checks Energy beyond the printed attack cost."
+  },
+  {
+    "schemaVersion": 1,
+    "cardId": "me5-104",
+    "sourceTextHash": "e668e0ab2a08251248ddec692ec6e4ef14a299415b5752e7313e8129b106fd43",
+    "generatedBy": {"provider": "openai-codex", "model": "gpt-6-astra", "responseId": "", "generatedAt": "2026-09-30T23:30:00Z"},
+    "confidence": "high",
+    "rules": [
+      {
+        "id": "tool-brave-bangle", "sourceType": "trainer_rule", "sourceName": "Brave Bangle", "trigger": "continuous", "cost": [],
+        "conditions": [
+          {"field": "attached_pokemon.has_rule_box", "operator": "equals", "value": "false"},
+          {"field": "opponent.active.subtypes", "operator": "contains", "value": "ex"}
+        ],
+        "effects": [{"op": "create_modifier", "target": "attached_pokemon.attacks.damage", "amount": 30, "value": "add", "conditions": [], "parameters": [{"key": "timing", "value": "before_weakness_resistance"}, {"key": "target", "value": "opponent.active"}]}]
+      }
+    ],
+    "unsupportedText": [],
+    "notes": "Modifier applies only to attacks against the opponent's Active Pokémon ex and only when the attached Pokémon has no Rule Box."
+  },
+  {
+    "schemaVersion": 1,
+    "cardId": "me5-105",
+    "sourceTextHash": "9994d205a2ed6469b90b36808d81397c948e2d64812933215bb5e77acba43e37",
+    "generatedBy": {"provider": "openai-codex", "model": "gpt-6-astra", "responseId": "", "generatedAt": "2026-09-30T23:30:00Z"},
+    "confidence": "high",
+    "rules": [
+      {
+        "id": "item-crushing-hammer", "sourceType": "trainer_rule", "sourceName": "Crushing Hammer", "trigger": "play_card", "cost": [], "conditions": [],
+        "effects": [
+          {"op": "flip_coin", "target": "coin", "amount": 1, "value": "", "conditions": [], "parameters": []},
+          {"op": "discard_energy", "target": "opponent.in_play.chosen_pokemon", "amount": 1, "value": "", "conditions": [{"field": "coin", "operator": "equals", "value": "heads"}], "parameters": [{"key": "pokemon_selection", "value": "player_choice"}, {"key": "energy_selection", "value": "player_choice"}]}
+        ]
+      }
+    ],
+    "unsupportedText": [],
+    "notes": "Both the opponent Pokémon and attached Energy are player choices after a heads result."
+  },
+  {
+    "schemaVersion": 1,
+    "cardId": "me5-106",
+    "sourceTextHash": "b3440f92c33c96e1f84420c25ce0671591bdff1c03e74cf18d94f174baa9eada",
+    "generatedBy": {"provider": "openai-codex", "model": "gpt-6-astra", "responseId": "", "generatedAt": "2026-09-30T23:30:00Z"},
+    "confidence": "high",
+    "rules": [
+      {
+        "id": "item-dark-bell", "sourceType": "trainer_rule", "sourceName": "Dark Bell", "trigger": "play_card", "cost": [], "conditions": [],
+        "effects": [
+          {"op": "confuse", "target": "self.active", "amount": 0, "value": "", "conditions": [{"field": "self.active.types", "operator": "not_contains", "value": "Darkness"}], "parameters": []},
+          {"op": "confuse", "target": "opponent.active", "amount": 0, "value": "", "conditions": [{"field": "opponent.active.types", "operator": "not_contains", "value": "Darkness"}], "parameters": []}
+        ]
+      }
+    ],
+    "unsupportedText": [],
+    "notes": "Each Active Pokémon is evaluated separately; Darkness Pokémon are unaffected."
+  },
+  {
+    "schemaVersion": 1,
+    "cardId": "me5-107",
+    "sourceTextHash": "6493241ff1ed743cfb869a350c3f697d79f91c5afdf9a4bf6ad9c2ca604a1e6a",
+    "generatedBy": {"provider": "openai-codex", "model": "gpt-6-astra", "responseId": "", "generatedAt": "2026-09-30T23:30:00Z"},
+    "confidence": "high",
+    "rules": [
+      {
+        "id": "item-energy-switch", "sourceType": "trainer_rule", "sourceName": "Energy Switch", "trigger": "play_card", "cost": [], "conditions": [],
+        "effects": [{"op": "move_energy", "target": "self.in_play", "amount": 1, "value": "Basic", "conditions": [], "parameters": [{"key": "source", "value": "chosen_self_pokemon"}, {"key": "destination", "value": "different_chosen_self_pokemon"}, {"key": "selection", "value": "player_choice"}]}]
+      }
+    ],
+    "unsupportedText": [],
+    "notes": "Source and destination Pokémon are distinct player choices; only a Basic Energy card can move."
+  }
+]

@@ -258,6 +258,9 @@ def import_catalog(
                     """,
                     (rules["id"], rules["version"], rules["name"], Jsonb(rules)),
                 )
+            from .rule_reviews import import_program_directory
+
+            import_program_directory(connection, rules_path.parent / "generated")
         connection.commit()
     return ImportResult(run_id, len(sets), len(cards), source["commit"])
 

@@ -80,6 +80,11 @@ version, and decision policies. It intentionally exposes its incomplete rules
 coverage in every result. Card effects are stored as versioned JSON generated
 by an incremental parser, retaining the raw source text for future parsing.
 
+AI-generated programs use a stricter, separately versioned rule schema. A
+source-text SHA-256 binds every program to the exact abilities, attacks, and
+rule-box text it was generated from. Static validation is followed by a human
+approval gate; only approved versions are considered trusted rules.
+
 ## Local and hosted environments
 
 Local development uses `compose.yaml` and a named Docker volume. Applications
@@ -217,6 +222,22 @@ variables and are never committed.
   visible and reviewable before becoming the repository baseline.
 - Consequence: GitHub Actions needs pull-request write permission. Local manual
   sync remains available for immediate testing.
+
+### ADR-011: Require AI and human gates for executable card rules
+
+- Status: Accepted
+- Date: 2026-09-30
+- Decision: Generate candidate programs with strict structured model output,
+  validate them against the source card and supported operation vocabulary,
+  then require password-authenticated human approval. Record every approval or
+  rejection in an append-only audit table.
+- Reason: Free-form card text contains timing, replacement effects, choices,
+  and unusual interactions. Schema-valid AI output is useful for scale but is
+  not sufficient evidence of rules accuracy.
+- Consequence: AI-passed programs are executable candidates, while only human-
+  approved versions are trusted. Changed source text creates a new version and
+  requires another review. The local password never enters the database or
+  repository; hosted review must replace it with proper user authentication.
 
 ## Open decisions
 

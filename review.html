@@ -1,0 +1,63 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="description" content="Review AI-generated Pokemon TCG card rules.">
+  <title>Rule Review · Pokémon TCG Live Cards</title>
+  <link rel="icon" href="favicon.svg" type="image/svg+xml">
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Roboto:wght@400;500;700&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="styles.css">
+  <link rel="stylesheet" href="review.css">
+</head>
+<body>
+  <header class="site-header">
+    <a class="brand" href="index.html">
+      <span class="brand-mark" aria-hidden="true"><i></i></span>
+      <strong>Rule Review</strong>
+    </a>
+    <div class="catalog-actions">
+      <a class="header-link" href="index.html">Cards</a>
+      <a class="header-link" href="deck.html">Deck Lab</a>
+      <button class="sync-button" id="logoutButton" type="button" hidden>Log out</button>
+    </div>
+  </header>
+
+  <main class="review-main">
+    <section class="review-intro">
+      <h1>Card rule approval</h1>
+      <p>AI drafts become trusted simulator rules only after a password-protected human review.</p>
+      <div class="coverage-grid" aria-label="Rule coverage">
+        <div><strong id="standardCount">—</strong><span>Standard cards</span></div>
+        <div><strong id="aiCount">—</strong><span>AI passed</span></div>
+        <div><strong id="approvedCount">—</strong><span>Human approved</span></div>
+        <div><strong id="pendingCount">—</strong><span>Pending review</span></div>
+      </div>
+    </section>
+
+    <section class="login-panel" id="loginPanel">
+      <h2>Reviewer login</h2>
+      <p id="loginHelp">Enter the local review password. It is never stored in PostgreSQL or the repository.</p>
+      <form id="loginForm">
+        <label><span>Reviewer name</span><input id="reviewerName" autocomplete="name" value="Manual reviewer"></label>
+        <label><span>Password</span><input id="reviewPassword" type="password" autocomplete="current-password" required></label>
+        <button class="primary-button" type="submit">Log in</button>
+      </form>
+      <p class="form-message" id="loginMessage" aria-live="polite"></p>
+    </section>
+
+    <section class="queue-section" id="queueSection" hidden>
+      <div class="queue-heading">
+        <div><h2>Review queue</h2><p id="queueSummary">Loading…</p></div>
+        <label><span>Status</span><select id="reviewStatus"><option value="pending">Pending</option><option value="approved">Approved</option><option value="rejected">Rejected</option><option value="all">All</option></select></label>
+      </div>
+      <div id="reviewQueue" class="review-queue"></div>
+    </section>
+  </main>
+
+  <footer><span>Pokémon TCG Live Cards</span><p>AI draft + human approval</p></footer>
+  <script src="review.js" defer></script>
+</body>
+</html>

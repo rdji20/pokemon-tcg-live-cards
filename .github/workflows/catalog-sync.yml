@@ -38,6 +38,16 @@ jobs:
       - run: python -m pip install -e ".[test]"
       - name: Synchronize and import
         run: ptcgl-catalog sync --as-of "$(date -u +%F)" --database-url "$DATABASE_URL"
+      - name: Generate nightly AI rule drafts
+        env:
+          OPENAI_API_KEY: ${{ secrets.OPENAI_API_KEY }}
+          OPENAI_RULE_MODEL: gpt-5
+        run: |
+          if [ -z "$OPENAI_API_KEY" ]; then
+            echo "OPENAI_API_KEY is not configured; skipping AI rule generation."
+            exit 0
+          fi
+          ptcgl-catalog ai-rules --limit 25
       - name: Test synchronized catalog
         run: pytest -q
       - name: Build change report
@@ -50,9 +60,10 @@ jobs:
           path: |
             reports/latest.md
             data/manifest.json
+            rules/generated
       - name: Open catalog update pull request
         run: |
-          if git diff --quiet catalog/baseline.json; then
+          if [ -z "$(git status --porcelain -- catalog/baseline.json rules/generated)" ]; then
             echo "No catalog change; no pull request needed."
             exit 0
           fi
@@ -60,11 +71,11 @@ jobs:
           git config user.name "github-actions[bot]"
           git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
           git switch -c "$branch"
-          git add catalog/baseline.json reports/latest.md
-          git commit -m "Update Pokemon TCG Live catalog baseline"
+          git add catalog/baseline.json reports/latest.md rules/generated
+          git commit -m "Update catalog and AI rule drafts"
           git push --set-upstream origin "$branch"
           gh pr create \
-            --title "Update Pokemon TCG Live catalog baseline" \
+            --title "Update catalog and AI rule drafts" \
             --body-file reports/latest.md \
             --base main \
             --head "$branch"

@@ -1,14 +1,21 @@
 from __future__ import annotations
 
+import base64
+import binascii
+import hashlib
+import hmac
 import json
+import os
 import threading
+import time
 from datetime import date
 from functools import partial
 from http import HTTPStatus
 from http.server import SimpleHTTPRequestHandler, ThreadingHTTPServer
 from pathlib import Path
 from typing import Any
-from urllib.parse import urlparse
+from http.cookies import SimpleCookie
+from urllib.parse import parse_qs, urlparse
 
 import psycopg
 
@@ -20,6 +27,33 @@ from .database import (
 from .decks import create_deck, export_deck, get_deck, list_decks, validate_payload
 from .optimization import optimize_deck
 from .simulation import simulate_match
+from .rule_reviews import decide_rule_review, list_rule_reviews, review_coverage
+
+
+def create_review_token(password: str, reviewer: str, *, now: int | None = None) -> str:
+    reviewer = reviewer.replace("|", " ").strip()[:80] or "manual-reviewer"
+    expiry = (now if now is not None else int(time.time())) + 8 * 60 * 60
+    payload = f"{reviewer}|{expiry}"
+    encoded = base64.urlsafe_b64encode(payload.encode()).decode().rstrip("=")
+    signature = hmac.new(password.encode(), payload.encode(), hashlib.sha256).hexdigest()
+    return f"{encoded}.{signature}"
+
+
+def verify_review_token(password: str, token: str, *, now: int | None = None) -> str | None:
+    if not password:
+        return None
+    try:
+        encoded_payload, signature = token.split(".", 1)
+        padding = "=" * (-len(encoded_payload) % 4)
+        payload = base64.urlsafe_b64decode(encoded_payload + padding).decode("utf-8")
+        reviewer, expiry_text = payload.rsplit("|", 1)
+        expected = hmac.new(password.encode(), payload.encode(), hashlib.sha256).hexdigest()
+        current_time = now if now is not None else int(time.time())
+        if not hmac.compare_digest(signature, expected) or int(expiry_text) < current_time:
+            return None
+        return reviewer
+    except (ValueError, UnicodeDecodeError, binascii.Error):
+        return None
 
 
 class CatalogHTTPServer(ThreadingHTTPServer):
@@ -57,11 +91,18 @@ class CatalogRequestHandler(SimpleHTTPRequestHandler):
             self.send_header("Cache-Control", "no-store")
         super().end_headers()
 
-    def _json_response(self, status: HTTPStatus, payload: dict[str, Any]) -> None:
+    def _json_response(
+        self,
+        status: HTTPStatus,
+        payload: dict[str, Any],
+        headers: dict[str, str] | None = None,
+    ) -> None:
         body = json.dumps(payload, ensure_ascii=False).encode("utf-8")
         self.send_response(status)
         self.send_header("Content-Type", "application/json; charset=utf-8")
         self.send_header("Content-Length", str(len(body)))
+        for name, value in (headers or {}).items():
+            self.send_header(name, value)
         self.end_headers()
         self.wfile.write(body)
 
@@ -81,6 +122,28 @@ class CatalogRequestHandler(SimpleHTTPRequestHandler):
             raise ValueError("JSON body must be an object")
         return payload
 
+    def _review_password(self) -> str:
+        password = os.environ.get("PTCGL_REVIEW_PASSWORD", "")
+        return password if len(password) >= 12 else ""
+
+    def _review_identity(self) -> str | None:
+        cookie = SimpleCookie(self.headers.get("Cookie", ""))
+        morsel = cookie.get("ptcgl_review")
+        password = self._review_password()
+        if morsel is None or not password:
+            return None
+        return verify_review_token(password, morsel.value)
+
+    def _review_cookie(self, reviewer: str) -> str:
+        token = create_review_token(self._review_password(), reviewer)
+        return f"ptcgl_review={token}; Path=/; Max-Age=28800; HttpOnly; SameSite=Strict"
+
+    def _require_reviewer(self) -> str | None:
+        reviewer = self._review_identity()
+        if reviewer is None:
+            self._json_response(HTTPStatus.UNAUTHORIZED, {"error": "Manual review login required"})
+        return reviewer
+
     def do_GET(self) -> None:
         parsed = urlparse(self.path)
         if parsed.path == "/api/status":
@@ -99,8 +162,6 @@ class CatalogRequestHandler(SimpleHTTPRequestHandler):
                 self._json_response(HTTPStatus.INTERNAL_SERVER_ERROR, {"error": str(exc)})
             return
         if parsed.path == "/api/cards":
-            from urllib.parse import parse_qs
-
             query = parse_qs(parsed.query)
             value = lambda key, default="": query.get(key, [default])[0]
             try:
@@ -116,6 +177,34 @@ class CatalogRequestHandler(SimpleHTTPRequestHandler):
                 )
                 self._json_response(HTTPStatus.OK, payload)
             except (psycopg.Error, ValueError) as exc:
+                self._json_response(HTTPStatus.BAD_REQUEST, {"error": str(exc)})
+            return
+        if parsed.path == "/api/rule-coverage":
+            try:
+                self._json_response(HTTPStatus.OK, review_coverage(self.server.database_url))
+            except psycopg.Error as exc:
+                self._json_response(HTTPStatus.INTERNAL_SERVER_ERROR, {"error": str(exc)})
+            return
+        if parsed.path == "/api/review/status":
+            identity = self._review_identity()
+            self._json_response(HTTPStatus.OK, {
+                "configured": bool(self._review_password()),
+                "authenticated": identity is not None,
+                "reviewer": identity,
+            })
+            return
+        if parsed.path == "/api/reviews":
+            if self._require_reviewer() is None:
+                return
+            query = parse_qs(parsed.query)
+            try:
+                items = list_rule_reviews(
+                    manual_status=query.get("status", ["pending"])[0],
+                    limit=int(query.get("limit", ["50"])[0]),
+                    url=self.server.database_url,
+                )
+                self._json_response(HTTPStatus.OK, {"items": items})
+            except (ValueError, psycopg.Error) as exc:
                 self._json_response(HTTPStatus.BAD_REQUEST, {"error": str(exc)})
             return
         if parsed.path == "/api/decks":
@@ -149,6 +238,52 @@ class CatalogRequestHandler(SimpleHTTPRequestHandler):
 
     def do_POST(self) -> None:
         path = urlparse(self.path).path
+        if path == "/api/review/login":
+            try:
+                payload = self._request_json()
+                configured = self._review_password()
+                supplied = str(payload.get("password", ""))
+                valid = bool(configured) and hmac.compare_digest(supplied, configured)
+                if not valid:
+                    self._json_response(
+                        HTTPStatus.UNAUTHORIZED,
+                        {"error": "Review password is not configured or is incorrect"},
+                    )
+                    return
+                reviewer = str(payload.get("reviewer", "manual-reviewer"))
+                self._json_response(
+                    HTTPStatus.OK,
+                    {"authenticated": True, "reviewer": reviewer.replace("|", " ").strip()[:80]},
+                    {"Set-Cookie": self._review_cookie(reviewer)},
+                )
+            except (ValueError, json.JSONDecodeError) as exc:
+                self._json_response(HTTPStatus.BAD_REQUEST, {"error": str(exc)})
+            return
+        if path == "/api/review/logout":
+            self._json_response(
+                HTTPStatus.OK,
+                {"authenticated": False},
+                {"Set-Cookie": "ptcgl_review=; Path=/; Max-Age=0; HttpOnly; SameSite=Strict"},
+            )
+            return
+        if path.startswith("/api/reviews/") and path.endswith("/decision"):
+            reviewer = self._require_reviewer()
+            if reviewer is None:
+                return
+            review_id = path.removeprefix("/api/reviews/").removesuffix("/decision").strip("/")
+            try:
+                payload = self._request_json()
+                result = decide_rule_review(
+                    review_id,
+                    decision=str(payload.get("decision", "")),
+                    reviewer=reviewer,
+                    note=str(payload.get("note", "")),
+                    url=self.server.database_url,
+                )
+                self._json_response(HTTPStatus.OK, {"review": result})
+            except (ValueError, json.JSONDecodeError, psycopg.Error) as exc:
+                self._json_response(HTTPStatus.BAD_REQUEST, {"error": str(exc)})
+            return
         if path in {"/api/decks", "/api/decks/validate", "/api/simulations", "/api/optimize"}:
             try:
                 payload = self._request_json()
