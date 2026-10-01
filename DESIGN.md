@@ -15,6 +15,10 @@ Last updated: 2026-10-01
   decorative fills.
 - Pokéball geometry is the shared brand motif. Use it for states, actions, and
   empty states, never as background clutter.
+- Standalone decorative or status dots are prohibited. Do not use a colored
+  circle as a live, active, loading, or section indicator. When a compact game
+  identity mark is necessary, use the complete Pokéball component with its
+  dividing line and center button.
 - Avoid generic dashboard cards. A bordered rectangle must represent a real
   object or workflow: a deck box, a card lineup, a review record, or a result.
 - Do not use colored strips on top of containers as decoration.
