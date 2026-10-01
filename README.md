@@ -17,6 +17,8 @@ The current checkpoints include:
    simulated.
 7. Daily catalog synchronization, Markdown change reports, tests, and GitHub
    Actions.
+8. A versioned interactive Arena for playing a saved Standard deck against a
+   deterministic local opponent.
 
 The initial automation target is the local simulator, so experiments remain
 repeatable and do not depend on controlling the Pokemon TCG Live client.
@@ -117,6 +119,12 @@ default view.
 Open [http://localhost:8000/deck.html](http://localhost:8000/deck.html) for the
 Deck Lab. Saved decks and experiment results live in PostgreSQL.
 
+Open [http://localhost:8000/arena.html](http://localhost:8000/arena.html) for
+the interactive Arena. It can use any saved, valid 60-card Standard deck from
+the catalog, regardless of ownership. Arena `0.1.0` enforces the documented
+core flow and labels attacks whose card-specific text is only partially
+supported; see the in-game Rules coverage panel before interpreting results.
+
 Open [http://localhost:8000/review.html](http://localhost:8000/review.html) for
 the password-protected card-rule review queue. Configure a local password of at
 least 12 characters before starting the server:
@@ -164,6 +172,9 @@ docker compose exec db psql -U ptcgl -d ptcgl -c \
 - `GET /api/rules` and `GET /api/cards/{id}/effects` — rule/effect models
 - `POST /api/simulations` — seeded matchup simulation
 - `POST /api/optimize` — deterministic heuristic deck construction
+- `POST /api/arena/sessions` — start a seeded interactive Arena match
+- `GET /api/arena/sessions/{id}` — read the current match state
+- `POST /api/arena/sessions/{id}/actions` — apply one server-approved action
 - `GET /api/rule-coverage` — AI and human-review coverage counts
 - `GET /api/reviews` — authenticated human review queue
 - `POST /api/reviews/{id}/decision` — authenticated approval or rejection
@@ -174,6 +185,7 @@ Run the automated checks with:
 pytest -q
 node --check app.js
 node --check deck.js
+node --check arena.js
 ```
 
 ## Scheduled synchronization
@@ -235,6 +247,20 @@ does not yet model energy costs, evolution, Weakness, Resistance, Retreat,
 Bench timing, or the long tail of card-specific effects. Every simulation
 result states these limitations so prototype output is not mistaken for a
 complete TCG rules judgment.
+
+Interactive Arena `arena-0.1.0` is a separate engine checkpoint. It adds Energy
+costs, evolution timing, one Energy attachment and retreat per turn, Weakness,
+Resistance, Knock Outs, Prize taking, promotion choice, and the principal win
+conditions. Its opponent is `simple-ai-0.1.0`: a deterministic setup, attach,
+and highest-printed-damage policy. The long tail of card-specific text and
+Abilities is not complete; partial attacks say `base damage only` and the
+Rules coverage panel lists the boundary.
+
+The core turn and setup behavior follows the
+[official Pokémon Trading Card Game rulebook](https://www.pokemon.com/static-assets/content-assets/cms2/pdf/trading-card-game/rulebook/par_rulebook_en.pdf).
+Card-specific text, official rulings, and interaction tests remain separately
+versioned so incomplete coverage is visible instead of being treated as a
+complete rules judgment.
 
 ## Accuracy model
 

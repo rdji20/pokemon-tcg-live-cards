@@ -40,11 +40,13 @@ def test_primary_navigation_is_identical_and_marks_current_page():
     pages = {
         "index.html": "index.html",
         "deck.html": "deck.html",
+        "arena.html": "arena.html",
         "review.html": "review.html",
     }
     expected = [
         ("index.html", "Cards"),
         ("deck.html", "Deck Lab"),
+        ("arena.html", "Arena"),
         ("review.html", "Rule Review"),
     ]
     for page, current in pages.items():

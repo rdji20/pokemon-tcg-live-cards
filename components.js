@@ -68,5 +68,30 @@
     `;
   }
 
-  window.TcgComponents = Object.freeze({ cardLineup, deckTile, featuredCards });
+  function battlePokemon(pokemon, slot = 'active') {
+    if (!pokemon) return `<div class="battle-pokemon empty ${escapeHtml(slot)}"><span>Empty</span></div>`;
+    const hpPercent = pokemon.hp ? Math.max(0, Math.min(100, pokemon.remainingHp / pokemon.hp * 100)) : 0;
+    return `
+      <article class="battle-pokemon ${escapeHtml(slot)}" data-pokemon-uid="${escapeHtml(pokemon.uid)}">
+        <img src="${escapeHtml(pokemon.image || '')}" alt="${escapeHtml(pokemon.name)} card">
+        <div class="battle-pokemon-state">
+          <strong>${escapeHtml(pokemon.name)}</strong>
+          <span>${pokemon.remainingHp} / ${pokemon.hp} HP</span>
+          <div class="hp-track" aria-label="${pokemon.remainingHp} of ${pokemon.hp} HP"><i style="width:${hpPercent}%"></i></div>
+          <small>${pokemon.energyCount} Energy</small>
+        </div>
+      </article>
+    `;
+  }
+
+  function handCard(card) {
+    return `
+      <article class="hand-card" data-card-uid="${escapeHtml(card.uid)}">
+        <img src="${escapeHtml(card.image || '')}" alt="${escapeHtml(card.name)} card">
+        <strong>${escapeHtml(card.name)}</strong>
+      </article>
+    `;
+  }
+
+  window.TcgComponents = Object.freeze({ battlePokemon, cardLineup, deckTile, featuredCards, handCard });
 })();

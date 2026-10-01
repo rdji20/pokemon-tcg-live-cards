@@ -19,6 +19,7 @@ jobs:
       - run: node --check app.js
       - run: node --check components.js
       - run: node --check deck.js
+      - run: node --check arena.js
       - run: node --check review.js
 
   postgres-integration:

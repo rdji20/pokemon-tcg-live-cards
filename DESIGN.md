@@ -25,7 +25,7 @@ Last updated: 2026-10-01
 
 The global header contains the TCG Live mark, primary navigation, and one small
 page-level status. Its height and navigation order remain consistent across
-Cards, Deck Lab, and Rule Review.
+Cards, Deck Lab, Arena, and Rule Review.
 
 ### Deck tile
 
@@ -72,6 +72,26 @@ lists remain drafts until validation succeeds.
 Test Arena puts actual card lineups before configuration controls. Deck and
 strategy selectors are secondary and appear below the matchup. Neither side
 selects a saved deck automatically.
+
+### Arena board
+
+Implementations: `TcgComponents.battlePokemon()` and
+`TcgComponents.handCard()` in `components.js`; composition in `arena.html`.
+
+The Arena Board is a playable table, not a dashboard panel. It uses real card
+images for the Active spot, five Bench spots, and the player's hand. Prize and
+deck stacks use compact card geometry, while the dark neutral playmat keeps
+the two sides legible. Red identifies the player side and blue identifies the
+opponent side without tinting the card artwork.
+
+Rules:
+
+- Legal actions come from the server and remain in a fixed action dock.
+- Any partially supported attack says `base damage only` in its action label.
+- Never represent an ignored card effect as executed.
+- Match and opponent-policy versions remain visible before play begins.
+- At narrow widths, move the action dock below the board and preserve
+  horizontally scrollable hands and Benches rather than shrinking the cards.
 
 ### Validation result
 

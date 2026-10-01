@@ -28,6 +28,7 @@ from .decks import create_deck, export_deck, get_deck, list_decks, validate_payl
 from .optimization import optimize_deck
 from .simulation import simulate_match
 from .rule_reviews import decide_rule_review, list_rule_reviews, review_coverage
+from .arena import apply_arena_action, get_arena_session, start_arena_session
 
 
 def create_review_token(password: str, reviewer: str, *, now: int | None = None) -> str:
@@ -218,6 +219,16 @@ class CatalogRequestHandler(SimpleHTTPRequestHandler):
             except psycopg.Error as exc:
                 self._json_response(HTTPStatus.INTERNAL_SERVER_ERROR, {"error": str(exc)})
             return
+        if parsed.path.startswith("/api/arena/sessions/"):
+            session_id = parsed.path.removeprefix("/api/arena/sessions/").strip("/")
+            if "/" in session_id:
+                self._json_response(HTTPStatus.NOT_FOUND, {"error": "Not found"})
+                return
+            try:
+                self._json_response(HTTPStatus.OK, get_arena_session(session_id))
+            except ValueError as exc:
+                self._json_response(HTTPStatus.NOT_FOUND, {"error": str(exc)})
+            return
         if parsed.path.startswith("/api/decks/"):
             parts = parsed.path.strip("/").split("/")
             try:
@@ -243,6 +254,25 @@ class CatalogRequestHandler(SimpleHTTPRequestHandler):
 
     def do_POST(self) -> None:
         path = urlparse(self.path).path
+        if path == "/api/arena/sessions":
+            try:
+                self._json_response(
+                    HTTPStatus.CREATED,
+                    start_arena_session(self._request_json(), self.server.database_url),
+                )
+            except (KeyError, ValueError, json.JSONDecodeError, psycopg.Error) as exc:
+                self._json_response(HTTPStatus.BAD_REQUEST, {"error": str(exc)})
+            return
+        if path.startswith("/api/arena/sessions/") and path.endswith("/actions"):
+            session_id = path.removeprefix("/api/arena/sessions/").removesuffix("/actions").strip("/")
+            try:
+                self._json_response(
+                    HTTPStatus.OK,
+                    apply_arena_action(session_id, self._request_json()),
+                )
+            except (KeyError, ValueError, json.JSONDecodeError) as exc:
+                self._json_response(HTTPStatus.BAD_REQUEST, {"error": str(exc)})
+            return
         if path == "/api/review/login":
             try:
                 payload = self._request_json()

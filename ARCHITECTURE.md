@@ -4,7 +4,7 @@ This document records architectural decisions for Pokemon TCG Live Lab. It is
 updated when a decision is accepted, replaced, or rejected so that the reason
 for a change remains visible.
 
-Last updated: 2026-09-30
+Last updated: 2026-10-01
 
 ## Goals
 
@@ -32,8 +32,8 @@ PostgreSQL importer --------> PostgreSQL search database
                                       |
                           +-----------+-----------+
                           |                       |
-                    Browser + Deck Lab      Rules / simulation /
-                                             optimization
+                Browser + Deck Lab + Arena   Rules / simulation /
+                                               optimization
 ```
 
 The source snapshot and generated manifest remain the reproducibility layer.
@@ -79,6 +79,10 @@ browser. `prototype-0.1.0` is deterministic for the same decks, seed, rules
 version, and decision policies. It intentionally exposes its incomplete rules
 coverage in every result. Card effects are stored as versioned JSON generated
 by an incremental parser, retaining the raw source text for future parsing.
+
+The interactive Arena is server-authoritative and separate from batch
+simulation. Its engine and automated opponent have independent versions, and
+the browser can submit only actions that the engine reports as legal.
 
 AI-generated programs use a stricter, separately versioned rule schema. A
 source-text SHA-256 binds every program to the exact abilities, attacks, and
@@ -255,12 +259,31 @@ variables and are never committed.
   rules require both checks. A card-text change produces a new source hash and
   clears the visible status until that exact text version is reviewed again.
 
+### ADR-013: Separate interactive Arena state from batch simulation
+
+- Status: Accepted
+- Date: 2026-10-01
+- Decision: Add a server-authoritative, turn-by-turn Arena whose engine and
+  opponent policy have independent semantic versions. Arena accepts any saved,
+  60-card Standard deck from the catalog without tracking digital or physical
+  ownership. The first opponent is deterministic for a supplied seed. Session
+  state is process-local during the prototype.
+- Reason: Interactive play and repeatable batch evaluation serve different
+  workflows. A separate Arena lets a player test cards before buying them while
+  keeping later policy implementations, including a possible JAX policy,
+  replaceable without rewriting the rules engine.
+- Consequence: Core game actions are enforced by the server. Unsupported
+  card-specific text is explicitly labeled partial and reported in the UI;
+  it must not be silently described as executed. Future releases need durable
+  sessions, player-selected setup, the complete reviewed effect corpus, and a
+  new engine version whenever behavior changes.
+
 ## Open decisions
 
 - Python HTTP framework and API contract.
 - Migration tool and release process.
 - Complete card-effect grammar and official ruling overrides.
-- Full simulation state/action protocol beyond the prototype.
+- Durable Arena sessions and a complete interactive state/action protocol.
 - Deck-search evaluation metrics and tournament matchup datasets.
 - Whether semantic embeddings provide enough value after structured search.
 

@@ -1,0 +1,96 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="description" content="Play a Standard Pokémon TCG deck against a versioned local opponent.">
+  <title>Arena · Pokémon TCG Live Cards</title>
+  <link rel="icon" href="favicon.svg" type="image/svg+xml">
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Roboto:wght@400;500;700&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="styles.css">
+  <link rel="stylesheet" href="arena.css?v=1">
+</head>
+<body>
+  <header class="site-header">
+    <div class="header-shell">
+      <a class="brand" href="index.html" aria-label="Pokémon TCG Live Cards home">
+        <span class="brand-mark" aria-hidden="true"><i></i></span>
+        <strong>TCG Live</strong>
+      </a>
+      <nav class="primary-nav" aria-label="Primary navigation">
+        <a class="nav-link" href="index.html">Cards</a>
+        <a class="nav-link" href="deck.html">Deck Lab</a>
+        <a class="nav-link" href="arena.html" aria-current="page">Arena</a>
+        <a class="nav-link" href="review.html">Rule Review</a>
+      </nav>
+      <div class="header-utilities"><span class="header-count" id="arenaStatus">Ready</span></div>
+    </div>
+  </header>
+
+  <main class="arena-main">
+    <section class="arena-intro">
+      <div>
+        <span class="section-kicker">Playable prototype</span>
+        <h1>Play the deck before you buy it.</h1>
+        <p>Use any saved Standard deck against a deterministic sparring opponent. The opponent is simple; the rules it claims to support are enforced by the server.</p>
+      </div>
+      <div class="arena-versions" aria-label="Arena versions"><span>arena-0.1.0</span><span>simple-ai-0.1.0</span></div>
+    </section>
+
+    <section class="arena-lobby" id="arenaLobby" aria-labelledby="lobbyTitle">
+      <div class="lobby-copy">
+        <span class="section-kicker">New match</span>
+        <h2 id="lobbyTitle">Choose your deck</h2>
+        <p>Your cards do not need to be owned in Pokémon TCG Live. Arena uses the Standard catalog so you can test a list before deciding what to buy.</p>
+      </div>
+      <form id="startMatchForm" class="lobby-controls">
+        <label><span>Your saved Standard deck</span><select id="playerDeck" required><option value="">Loading decks…</option></select></label>
+        <label><span>Opponent's primary type</span><select id="opponentType"><option>Fire</option><option>Water</option><option>Grass</option><option>Lightning</option><option>Psychic</option><option>Fighting</option><option>Darkness</option><option>Metal</option><option>Colorless</option></select></label>
+        <label><span>Replay seed</span><input id="arenaSeed" type="number" value="1" min="0"></label>
+        <button id="startMatchButton" type="submit">Start match</button>
+      </form>
+      <div class="lobby-message" id="lobbyMessage" aria-live="polite">Loading saved decks…</div>
+    </section>
+
+    <section class="game-shell" id="gameShell" hidden aria-labelledby="gameTitle">
+      <div class="game-heading">
+        <div><span class="section-kicker">Live match</span><h2 id="gameTitle">Arena board</h2></div>
+        <div class="turn-status"><strong id="turnStatus">Your turn</strong><span id="turnNumber">Turn 1</span></div>
+        <button class="new-match-button" id="newMatchButton" type="button">New match</button>
+      </div>
+
+      <div class="arena-layout">
+        <div class="playmat">
+          <section class="player-zone opponent-zone" aria-label="Opponent board">
+            <div class="player-summary"><strong id="opponentName">Opponent</strong><span id="opponentCounts"></span></div>
+            <div class="bench-row" id="opponentBench"></div>
+            <div class="active-row"><div class="prize-stack" id="opponentPrizes" aria-label="Opponent Prize cards"></div><div id="opponentActive"></div><div class="deck-stack" id="opponentDeck"></div></div>
+          </section>
+
+          <div class="battle-line"><span>VS</span><p id="battleMessage">Choose an action.</p></div>
+
+          <section class="player-zone self-zone" aria-label="Your board">
+            <div class="active-row"><div class="prize-stack" id="playerPrizes" aria-label="Your Prize cards"></div><div id="playerActive"></div><div class="deck-stack" id="playerDeckStack"></div></div>
+            <div class="bench-row" id="playerBench"></div>
+            <div class="player-summary"><strong id="playerName">Your deck</strong><span id="playerCounts"></span></div>
+          </section>
+
+          <section class="hand-zone" aria-labelledby="handTitle"><div class="hand-heading"><h3 id="handTitle">Your hand</h3><span id="handCount">0 cards</span></div><div class="hand-row" id="playerHand"></div></section>
+        </div>
+
+        <aside class="action-dock">
+          <section><span class="section-kicker">Legal moves</span><h3>Choose an action</h3><div class="action-list" id="actionList"></div></section>
+          <section class="battle-log"><h3>Battle log</h3><ol id="battleLog"></ol></section>
+          <details class="coverage-note"><summary>Rules coverage</summary><ul id="arenaLimitations"></ul></details>
+        </aside>
+      </div>
+    </section>
+  </main>
+
+  <footer><span>Pokémon TCG Live Cards</span><p>Build · play · improve</p></footer>
+  <script src="components.js?v=2" defer></script>
+  <script src="arena.js?v=1" defer></script>
+</body>
+</html>

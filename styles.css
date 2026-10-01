@@ -174,7 +174,7 @@ dialog::backdrop { background: rgba(20,22,24,.70); }
   .header-shell { width: 100%; min-height: 104px; grid-template-columns: minmax(0, 1fr) auto; grid-template-rows: 60px 44px; gap: 0; }
   .brand { padding-left: 18px; }
   .header-utilities { min-width: 0; padding-right: 18px; }
-  .primary-nav { height: 44px; grid-column: 1 / -1; grid-row: 2; display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 0; border-top: 1px solid var(--border); }
+  .primary-nav { height: 44px; grid-column: 1 / -1; grid-row: 2; display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 0; border-top: 1px solid var(--border); }
   .nav-link { min-width: 0; padding: 0 8px; }
   .nav-link[aria-current="page"]::after { right: 12px; left: 12px; }
   .last-sync { display: none; }
