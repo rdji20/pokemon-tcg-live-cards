@@ -56,23 +56,35 @@
 .game-controls .end-turn-control:hover { background: #f5d55e; }
 .fullscreen-icon { width: 13px; height: 13px; display: block; background: linear-gradient(#dce1e5,#dce1e5) left top/5px 1px no-repeat, linear-gradient(#dce1e5,#dce1e5) left top/1px 5px no-repeat, linear-gradient(#dce1e5,#dce1e5) right top/5px 1px no-repeat, linear-gradient(#dce1e5,#dce1e5) right top/1px 5px no-repeat, linear-gradient(#dce1e5,#dce1e5) left bottom/5px 1px no-repeat, linear-gradient(#dce1e5,#dce1e5) left bottom/1px 5px no-repeat, linear-gradient(#dce1e5,#dce1e5) right bottom/5px 1px no-repeat, linear-gradient(#dce1e5,#dce1e5) right bottom/1px 5px no-repeat; }
 
-.setup-overlay { position: absolute; z-index: 10; inset: 54px 0 0; display: grid; place-items: center; padding: 24px; background: rgba(4,10,14,.72); backdrop-filter: blur(8px); }
-.setup-dialog { width: min(520px, 100%); padding: 30px; border: 1px solid #57636c; border-radius: 14px; text-align: center; background: linear-gradient(180deg, rgba(31,42,50,.98), rgba(16,23,28,.98)); box-shadow: 0 24px 65px rgba(0,0,0,.48); }
+.setup-overlay { position: absolute; z-index: 10; inset: 54px 0 0; display: grid; place-items: center; padding: 24px; background: rgba(3,10,13,.82); backdrop-filter: blur(5px); }
+.setup-dialog { width: min(540px, 100%); padding: 32px; text-align: center; }
 .setup-coin { width: 72px; height: 72px; margin: 0 auto 18px; display: grid; place-items: center; position: relative; border: 4px solid #e1e6e9; border-radius: 50%; color: #162029; background: linear-gradient(145deg,#f3cd48,#c78f20); box-shadow: inset 0 0 0 4px rgba(22,32,41,.28), 0 10px 25px rgba(0,0,0,.3); transition: transform .45s ease; }
 .setup-coin::before { content: "?"; font-size: 28px; font-weight: 700; }
 .setup-coin::after { content: ""; position: absolute; inset: 10px; border: 1px solid rgba(22,32,41,.34); border-radius: 50%; }
 .setup-coin.result-heads { transform: rotateY(180deg); }
 .setup-coin.result-heads::before { content: "H"; transform: rotateY(180deg); }
 .setup-coin.result-tails::before { content: "T"; }
-.setup-dialog > span { color: #92a0aa; font-size: 9px; text-transform: uppercase; }
-.setup-dialog h2 { margin: 7px 0 8px; font-size: 24px; font-weight: 500; }
-.setup-dialog p { max-width: 420px; margin: 0 auto; color: #aeb8c0; font-size: 12px; line-height: 1.5; }
-.setup-actions { margin-top: 22px; display: flex; flex-wrap: wrap; justify-content: center; gap: 8px; }
-.setup-actions button { min-width: 120px; min-height: 40px; padding: 8px 14px; border: 1px solid #65727c; border-radius: 6px; color: #f4f6f7; background: #2a353d; font-size: 11px; }
-.setup-actions button:hover { border-color: #efc944; background: #354149; }
-.setup-actions .action-call_coin, .setup-actions .action-choose_turn_order, .setup-actions .action-finish_setup { border-color: #d4b33d; color: #172027; background: #efc944; }
-.setup-facts { margin-top: 18px; display: flex; flex-wrap: wrap; justify-content: center; gap: 6px; }
-.setup-facts span { padding: 5px 7px; border: 1px solid #46525b; border-radius: 4px; color: #aeb8c0; font-size: 8px; }
+.setup-coin[hidden] { display: none; }
+.setup-dialog > span { display: block; color: #c7d0d6; font-size: 10px; font-weight: 700; text-transform: uppercase; }
+.setup-dialog h2 { margin: 8px 0; color: #fff; font-size: 30px; font-weight: 500; }
+.setup-dialog p { max-width: 460px; margin: 0 auto; overflow-wrap: anywhere; color: #d6dde2; font-size: 15px; line-height: 1.5; }
+.setup-actions { margin-top: 26px; display: flex; flex-wrap: wrap; justify-content: center; gap: 22px; }
+.setup-actions button { font-family: inherit; cursor: pointer; }
+.setup-actions button:focus-visible { outline: 3px solid white; outline-offset: 5px; }
+.setup-actions .coin-choice { min-width: 116px; padding: 0; display: flex; align-items: center; flex-direction: column; gap: 10px; border: 0; color: white; background: transparent; }
+.coin-face { width: 94px; height: 94px; display: grid; place-items: center; position: relative; border: 5px solid #f8e39a; border-radius: 50%; color: #172027; background: radial-gradient(circle at 35% 28%, #ffe88e 0 8%, #efc944 9% 58%, #c58a18 59% 100%); box-shadow: inset 0 0 0 5px rgba(116,72,5,.36), 0 12px 24px rgba(0,0,0,.38); transition: transform .16s ease, box-shadow .16s ease; }
+.coin-face::after { content: ""; position: absolute; inset: 17px; border: 2px solid rgba(80,50,4,.38); border-radius: 50%; }
+.coin-face b { z-index: 1; font-size: 34px; font-weight: 700; }
+.coin-choice strong { color: white; font-size: 15px; font-weight: 500; }
+.coin-choice:hover .coin-face { transform: translateY(-6px) rotate(-4deg); box-shadow: inset 0 0 0 5px rgba(116,72,5,.36), 0 18px 32px rgba(239,201,68,.32); }
+.coin-choice:active .coin-face { transform: translateY(-1px) scale(.96); }
+.setup-actions .turn-choice { width: 210px; min-height: 112px; padding: 18px; display: flex; align-items: flex-start; justify-content: center; flex-direction: column; gap: 6px; border: 2px solid #d7dee3; border-radius: 12px; color: #172027; text-align: left; background: #f5f7f8; box-shadow: 0 12px 24px rgba(0,0,0,.25); transition: transform .16s ease, border-color .16s ease; }
+.turn-choice strong { font-size: 19px; font-weight: 700; }
+.turn-choice span { color: #4f5b64; font-size: 12px; line-height: 1.35; }
+.setup-actions .turn-choice:hover { border-color: #efc944; color: #172027; background: white; transform: translateY(-4px); }
+.setup-actions button:not(.coin-choice):not(.turn-choice) { min-width: 145px; min-height: 48px; padding: 10px 16px; border: 2px solid #d7dee3; border-radius: 8px; color: #172027; background: #f5f7f8; font-size: 13px; font-weight: 700; }
+.setup-actions button:not(.coin-choice):not(.turn-choice):hover { border-color: #efc944; color: #172027; background: #fff; }
+.setup-facts { min-height: 16px; margin-top: 20px; color: #bdc8cf; font-size: 10px; line-height: 1.5; }
 
 .play-surface { min-height: 650px; position: relative; z-index: 2; }
 .field-side { padding: 12px 20px; position: relative; }
@@ -106,6 +118,9 @@
 .battle-pokemon.active img { max-height: 156px; object-fit: contain; }
 .battle-pokemon.bench img { max-height: 96px; object-fit: contain; }
 .battle-pokemon.empty { min-height: 96px; display: grid; place-items: center; border: 1px dashed rgba(255,255,255,.12); border-radius: 6px; color: rgba(255,255,255,.22); font-size: 9px; }
+.setup-card-back i { width: 100%; aspect-ratio: 2.5 / 3.5; display: block; border: 3px solid #d7e0e6; border-radius: 6px; background: radial-gradient(circle, #f5f7f8 0 8%, #111920 9% 14%, transparent 15%), linear-gradient(#2c71a4 0 46%, #10171c 46% 54%, #e5ebef 54%); box-shadow: 0 8px 18px rgba(0,0,0,.36); }
+.setup-card-back.active { width: 112px; }
+.setup-card-back.bench { width: 68px; }
 .battle-pokemon-state { margin-top: 4px; text-align: center; }
 .battle-pokemon-state strong { display: block; overflow: hidden; font-size: 9px; font-weight: 500; text-overflow: ellipsis; white-space: nowrap; }
 .battle-pokemon-state > span, .battle-pokemon-state small { color: #aeb8c0; font-size: 8px; }
@@ -140,6 +155,7 @@
 .hand-card { width: 98px; flex: 0 0 98px; position: relative; cursor: grab; transform-origin: center; transition: transform .17s ease, filter .17s ease; }
 .hand-card:hover, .hand-card.selected { z-index: 3; transform: translateY(-5px) scale(1.035); }
 .hand-card.selected { filter: drop-shadow(0 0 8px rgba(244,204,66,.8)); }
+.hand-card.playable { filter: drop-shadow(0 0 10px rgba(239,201,68,.95)); animation: playable-card 850ms ease-in-out infinite alternate; }
 .hand-card:active { cursor: grabbing; }
 .hand-card img { width: 100%; display: block; border-radius: 4px; box-shadow: 0 5px 12px rgba(0,0,0,.35); }
 .hand-card strong { display: none; }
@@ -166,6 +182,7 @@
 .battle-log li, .coverage-note li { margin-bottom: 6px; color: #9eabb4; font-size: 9px; line-height: 1.4; }
 
 @keyframes target-pulse { to { box-shadow: 0 0 34px rgba(239,201,68,.88); } }
+@keyframes playable-card { to { transform: translateY(-8px); filter: drop-shadow(0 0 18px rgba(239,201,68,1)); } }
 
 @media (max-width: 1050px) {
   .arena-intro { align-items: flex-start; flex-direction: column; gap: 18px; }
@@ -224,4 +241,5 @@
 
 @media (prefers-reduced-motion: reduce) {
   .battle-pokemon img, .hand-card { transition: none; }
+  .hand-card.playable { animation: none; }
 }

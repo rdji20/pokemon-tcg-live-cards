@@ -248,7 +248,7 @@ Bench timing, or the long tail of card-specific effects. Every simulation
 result states these limitations so prototype output is not mistaken for a
 complete TCG rules judgment.
 
-Interactive Arena `arena-0.2.0` is a separate engine checkpoint. It starts with
+Interactive Arena `arena-0.2.1` is a separate engine checkpoint. It starts with
 the official pregame sequence: coin call, the winner's first-or-second choice,
 seven-card opening hands, repeated no-Basic mulligans, optional bonus draws,
 player-selected Active and Bench Pokémon, and six Prize cards. It then enforces
@@ -266,7 +266,7 @@ separate versioned card-rule pipeline. The browser does not duplicate game
 rules in JavaScript; it renders legal actions supplied by the Python engine.
 
 The core turn and setup behavior follows the
-[official Pokémon Trading Card Game rulebook](https://www.pokemon.com/static-assets/content-assets/cms2/pdf/trading-card-game/rulebook/par_rulebook_en.pdf).
+[official Pokémon Trading Card Game rulebook](https://tcg.pokemon.com/assets/img/global/tcg-rulebook/ME02_Web_Rulebook_en-us_HiRes.pdf).
 Card-specific text, official rulings, and interaction tests remain separately
 versioned so incomplete coverage is visible instead of being treated as a
 complete rules judgment.

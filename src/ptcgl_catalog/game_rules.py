@@ -3,10 +3,10 @@ from __future__ import annotations
 from typing import Final
 
 
-CORE_RULES_VERSION: Final = "pokemon-tcg-core-0.2.0"
+CORE_RULES_VERSION: Final = "pokemon-tcg-core-0.2.1"
 OFFICIAL_RULEBOOK_URL: Final = (
-    "https://www.pokemon.com/static-assets/content-assets/cms2/pdf/"
-    "trading-card-game/rulebook/par_rulebook_en.pdf"
+    "https://tcg.pokemon.com/assets/img/global/tcg-rulebook/"
+    "ME02_Web_Rulebook_en-us_HiRes.pdf"
 )
 
 DECK_SIZE: Final = 60
@@ -81,7 +81,7 @@ def setup_prompt(phase: str, *, mulligan_draws: int = 0) -> dict[str, str]:
     prompts = {
         "coin_call": {
             "title": "Call the opening coin",
-            "text": "Choose heads or tails. The winner decides who takes the first turn.",
+            "text": "Pick a side. The winner chooses who goes first.",
         },
         "choose_turn_order": {
             "title": "You won the coin flip",
@@ -93,11 +93,11 @@ def setup_prompt(phase: str, *, mulligan_draws: int = 0) -> dict[str, str]:
         },
         "choose_active": {
             "title": "Choose your Active Pokémon",
-            "text": "Select one Basic Pokémon from your opening hand for the Active Spot.",
+            "text": "Click a highlighted Basic Pokémon in your hand to place it face down in the Active Spot.",
         },
         "choose_bench": {
             "title": "Set up your Bench",
-            "text": "You may place up to five more Basic Pokémon, then finish setup and place six Prize cards.",
+            "text": "Click highlighted Basic Pokémon to place them face down. Choose Ready when your board is set.",
         },
     }
     return prompts.get(phase, {"title": "Main phase", "text": "Choose one legal action."})

@@ -24,7 +24,7 @@ from .game_rules import (
 from .optimization import optimize_deck
 
 
-ARENA_VERSION = "arena-0.2.0"
+ARENA_VERSION = "arena-0.2.1"
 AI_POLICY_VERSION = "simple-ai-0.1.0"
 _SESSIONS: dict[str, "ArenaSession"] = {}
 _SESSION_LOCK = threading.RLock()
@@ -255,6 +255,7 @@ class ArenaSession:
         if self.mulligans[0]:
             self.log.append(f"{self.players[1]['name']} drew {self.mulligans[0]} mulligan bonus card{'s' if self.mulligans[0] != 1 else ''}.")
         self.mulligan_draws_available = self.mulligans[1]
+        self._set_up_in_play(self.players[1])
         self.phase = "mulligan_draw" if self.mulligan_draws_available else "choose_active"
 
     def _resolve_mulligan_draw(self, count: int) -> None:
@@ -279,7 +280,6 @@ class ArenaSession:
         self.log.append(f"{player['name']} chose {item['card']['name']} as the opening Active Pokémon.")
 
     def _finish_setup(self) -> None:
-        self._set_up_in_play(self.players[1])
         for player in self.players:
             for _ in range(PRIZE_COUNT):
                 if not player["deck"]:

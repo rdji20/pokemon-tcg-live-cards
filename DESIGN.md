@@ -105,9 +105,13 @@ Rules:
 - Match and opponent-policy versions remain visible before play begins.
 - The game table owns its fullscreen control and must return to the exact same
   state when fullscreen closes. The `F` shortcut mirrors that control.
-- Pregame rules use a centered Setup Overlay on the same table. Coin call,
-  turn-order choice, mulligan draws, Active selection, Bench selection, and
-  Prize setup remain visible steps rather than an automatic jump to Turn 1.
+- Pregame uses a focused overlay only for the coin call, turn-order choice,
+  and optional mulligan draw. Coin choices look and behave like physical coin
+  faces, never generic form buttons. Active and Bench setup happens on the
+  board by clicking highlighted cards in the real hand; one `Ready` action
+  finishes placement. Setup Pokémon remain face down until both players reveal.
+- Arena controls use a locked high-contrast palette. Hover, selected, disabled,
+  and keyboard-focus states must never reduce label contrast.
 - At narrow widths, preserve horizontally scrollable hands and Benches rather
   than shrinking the cards until their art is illegible.
 

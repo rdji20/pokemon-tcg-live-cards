@@ -155,6 +155,8 @@ def test_player_can_choose_to_go_second_after_winning_coin_flip():
     session.apply({"type": "choose_turn_order", "order": "second"})
     assert session.first_player == 1
     assert session.phase in {"mulligan_draw", "choose_active"}
+    assert session.players[1]["active"] is not None
+    assert session.players[1]["prizes"] == []
 
 
 def test_opening_hand_mulligans_until_it_contains_a_basic():

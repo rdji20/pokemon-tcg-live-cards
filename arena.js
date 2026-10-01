@@ -37,16 +37,25 @@ function benchSlots(cards) {
   return Array.from({ length: 5 }, (_, index) => window.TcgComponents.battlePokemon(cards[index], 'bench')).join('');
 }
 
+function setupCardBack(zone) {
+  return `<article class="battle-pokemon ${zone} setup-card-back" aria-label="Face-down setup Pokémon"><i></i></article>`;
+}
+
+function setupBenchSlots(count) {
+  return Array.from({ length: 5 }, (_, index) => index < count ? setupCardBack('bench') : window.TcgComponents.battlePokemon(null, 'bench')).join('');
+}
+
 function hiddenHand(count) {
   const visible = Math.min(count, 9);
   return `${Array.from({ length: visible }, (_, index) => `<i class="card-back" style="--hand-index:${index};--hand-total:${visible}"></i>`).join('')}<span>${count}</span>`;
 }
 
 function renderPlayer(prefix, player, revealHand = false) {
+  const concealBoard = arenaState.game?.status === 'setup';
   arenaEl[`${prefix}Name`].textContent = player.name;
   arenaEl[`${prefix}Counts`].textContent = `${player.deckCount} deck · ${player.handCount} hand · ${player.discardCount} discard`;
-  arenaEl[`${prefix}Bench`].innerHTML = benchSlots(player.bench);
-  arenaEl[`${prefix}Active`].innerHTML = window.TcgComponents.battlePokemon(player.active, 'active');
+  arenaEl[`${prefix}Bench`].innerHTML = concealBoard ? setupBenchSlots(player.bench.length) : benchSlots(player.bench);
+  arenaEl[`${prefix}Active`].innerHTML = concealBoard && player.active ? setupCardBack('active') : window.TcgComponents.battlePokemon(player.active, 'active');
   arenaEl[`${prefix}Prizes`].innerHTML = prizeCards(player.prizesRemaining);
   const deckTarget = prefix === 'player' ? arenaEl.playerDeckStack : arenaEl.opponentDeck;
   deckTarget.innerHTML = `<span>${player.deckCount}</span><small>deck</small>`;
@@ -72,21 +81,42 @@ function actionMarkup(actions, includeGroups = true) {
   }).join('') || '<p>No actions available.</p>';
 }
 
+function setupActionMarkup(game) {
+  if (game.phase === 'coin_call') {
+    return game.legalActions.map((action, index) => `
+      <button type="button" data-action-index="${index}" class="coin-choice coin-${escapeHtml(action.choice)}">
+        <span class="coin-face" aria-hidden="true"><b>${action.choice === 'heads' ? 'H' : 'T'}</b></span>
+        <strong>${action.choice === 'heads' ? 'Heads' : 'Tails'}</strong>
+      </button>
+    `).join('');
+  }
+  if (game.phase === 'choose_turn_order') {
+    return game.legalActions.map((action, index) => `
+      <button type="button" data-action-index="${index}" class="turn-choice">
+        <strong>${action.order === 'first' ? 'Go first' : 'Go second'}</strong>
+        <span>${action.order === 'first' ? 'Build your board first' : 'Attack on your first turn'}</span>
+      </button>
+    `).join('');
+  }
+  return actionMarkup(game.legalActions, false);
+}
+
 function renderSetup(game) {
-  const active = game.status === 'setup';
+  const active = game.status === 'setup' && ['coin_call', 'choose_turn_order', 'mulligan_draw'].includes(game.phase);
   arenaEl.setupOverlay.hidden = !active;
   if (!active) return;
   arenaEl.setupStep.textContent = `Match setup · ${String(game.phase).replaceAll('_', ' ')}`;
   arenaEl.setupTitle.textContent = game.prompt.title;
   arenaEl.setupText.textContent = game.prompt.text;
-  arenaEl.setupActionList.innerHTML = actionMarkup(game.legalActions, false);
+  arenaEl.setupActionList.innerHTML = setupActionMarkup(game);
+  arenaEl.setupCoin.hidden = game.phase !== 'choose_turn_order';
   arenaEl.setupCoin.className = `setup-coin${game.setup.coinResult ? ` result-${game.setup.coinResult}` : ''}`;
   const facts = [];
   if (game.setup.coinCall) facts.push(`You called ${game.setup.coinCall}`);
   if (game.setup.coinResult) facts.push(`Result: ${game.setup.coinResult}`);
   if (game.setup.firstPlayer) facts.push(`${game.setup.firstPlayer === 'player' ? 'You go' : 'Opponent goes'} first`);
   if (game.setup.playerMulligans || game.setup.opponentMulligans) facts.push(`Mulligans: you ${game.setup.playerMulligans}, opponent ${game.setup.opponentMulligans}`);
-  arenaEl.setupFacts.innerHTML = facts.map(fact => `<span>${escapeHtml(fact)}</span>`).join('');
+  arenaEl.setupFacts.textContent = facts.join(' · ');
 }
 
 function renderGame(game) {
@@ -111,9 +141,14 @@ function renderGame(game) {
   renderSetup(game);
 
   arenaEl.contextMenu.hidden = true;
-  const endTurnIndex = game.legalActions.findIndex(action => action.type === 'end_turn');
-  arenaEl.endTurnButton.hidden = endTurnIndex < 0;
-  arenaEl.endTurnButton.dataset.actionIndex = endTurnIndex;
+  const primaryIndex = game.legalActions.findIndex(action => action.type === 'end_turn' || action.type === 'finish_setup');
+  arenaEl.endTurnButton.hidden = primaryIndex < 0;
+  arenaEl.endTurnButton.dataset.actionIndex = primaryIndex;
+  arenaEl.endTurnButton.firstChild.textContent = game.legalActions[primaryIndex]?.type === 'finish_setup' ? 'Ready ' : 'End turn ';
+  if (game.status === 'setup' && ['choose_active', 'choose_bench'].includes(game.phase)) {
+    const playable = new Set(game.legalActions.filter(action => action.cardUid).map(action => action.cardUid));
+    arenaEl.playerHand.querySelectorAll('[data-card-uid]').forEach(card => card.classList.toggle('playable', playable.has(card.dataset.cardUid)));
+  }
   if (game.phase === 'playing' && game.legalActions.some(action => action.type === 'promote')) {
     game.legalActions.filter(action => action.type === 'promote').forEach(action => markTarget(action.targetUid));
     arenaEl.battleMessage.textContent = 'Choose a Benched Pokémon to move into the Active Spot.';
@@ -220,9 +255,16 @@ function showContext(title, items) {
 
 function selectHandCard(event) {
   const card = event.target.closest('[data-card-uid]');
-  if (!card || !arenaState.game || arenaState.busy || arenaState.game.status !== 'playing') return;
+  if (!card || !arenaState.game || arenaState.busy) return;
   const cardUid = card.dataset.cardUid;
   const related = indexedActions(action => action.cardUid === cardUid);
+  if (arenaState.game.status === 'setup') {
+    const setupAction = related.find(item => ['choose_active', 'setup_bench'].includes(item.action.type));
+    if (setupAction) submitAction(setupAction.action);
+    else arenaEl.battleMessage.textContent = 'Choose a highlighted Basic Pokémon.';
+    return;
+  }
+  if (arenaState.game.status !== 'playing') return;
   clearInteraction();
   if (!related.length) {
     arenaEl.battleMessage.textContent = 'That card cannot be played right now.';
@@ -280,7 +322,10 @@ function selectBenchZone(event) {
 
 function beginCardDrag(event) {
   const card = event.target.closest('[data-card-uid]');
-  if (!card) return;
+  if (!card || arenaState.game?.status !== 'playing') {
+    event.preventDefault();
+    return;
+  }
   selectHandCard({ target: card });
   event.dataTransfer.effectAllowed = 'move';
   event.dataTransfer.setData('text/plain', card.dataset.cardUid);
