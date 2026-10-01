@@ -121,6 +121,7 @@ function renderSetup(game) {
 
 function renderGame(game) {
   arenaState.game = game;
+  document.body.classList.add('arena-playing');
   arenaState.selectedCardUid = null;
   arenaState.selectedSource = null;
   arenaEl.arenaLobby.hidden = true;
@@ -368,6 +369,7 @@ function newMatch() {
   if (document.fullscreenElement) document.exitFullscreen();
   localStorage.removeItem('ptcglArenaSession');
   arenaState.game = null;
+  document.body.classList.remove('arena-playing');
   arenaEl.gameShell.hidden = true;
   arenaEl.arenaLobby.hidden = false;
   arenaEl.arenaStatus.textContent = 'Ready';

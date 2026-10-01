@@ -34,7 +34,7 @@
   box-shadow: 0 24px 58px rgba(26,32,38,.22);
 }
 .game-table::before { content: ""; position: absolute; inset: 54px 0 0; pointer-events: none; border-top: 1px solid rgba(255,255,255,.08); border-bottom: 1px solid rgba(0,0,0,.3); background: linear-gradient(180deg, rgba(32,89,119,.22), transparent 44%, transparent 56%, rgba(161,48,42,.2)); }
-.game-table:fullscreen { width: 100vw; height: 100vh; min-height: 100vh; border: 0; border-radius: 0; overflow-y: auto; }
+.game-table:fullscreen { width: 100vw; height: 100vh; min-height: 100vh; border: 0; border-radius: 0; overflow: hidden; }
 .game-table:fullscreen .play-surface { min-height: calc(100vh - 54px); }
 .game-table:fullscreen .game-hud { position: sticky; top: 0; }
 
@@ -183,6 +183,60 @@
 
 @keyframes target-pulse { to { box-shadow: 0 0 34px rgba(239,201,68,.88); } }
 @keyframes playable-card { to { transform: translateY(-8px); filter: drop-shadow(0 0 18px rgba(239,201,68,1)); } }
+
+body.arena-playing { height: 100dvh; overflow: hidden; }
+body.arena-playing .arena-intro,
+body.arena-playing > footer { display: none; }
+body.arena-playing .arena-main { width: 100%; height: calc(100dvh - 68px); padding: 0; }
+body.arena-playing .game-shell { height: 100%; margin: 0; }
+body.arena-playing .game-table { width: 100%; height: 100%; min-height: 0; display: grid; grid-template-rows: 54px minmax(0, 1fr); border: 0; border-radius: 0; overflow: hidden; box-shadow: none; }
+body.arena-playing .game-hud { min-height: 54px; padding: 0 24px; }
+body.arena-playing .game-identity strong,
+body.arena-playing .turn-status strong { font-size: 15px; }
+body.arena-playing .game-controls button { height: 38px; padding: 0 14px; font-size: 12px; }
+body.arena-playing .play-surface { height: 100%; min-height: 0; display: grid; grid-template-rows: minmax(0, 1fr) 48px minmax(0, 1fr) clamp(180px, 25dvh, 290px); overflow: hidden; }
+body.arena-playing .field-side { min-height: 0; padding: 8px 24px; display: grid; }
+body.arena-playing .opponent-side { grid-template-rows: auto minmax(0, 1fr); }
+body.arena-playing .player-side { grid-template-rows: minmax(0, 1fr) auto; }
+body.arena-playing .field-grid,
+body.arena-playing .combat-zone,
+body.arena-playing .active-area,
+body.arena-playing .bench-row { min-height: 0; }
+body.arena-playing .field-grid { grid-template-columns: 94px minmax(0, 1fr) 94px; gap: 20px; }
+body.arena-playing .combat-zone { grid-template-columns: minmax(0, 1fr) clamp(130px, 10vw, 190px); gap: clamp(24px, 3vw, 52px); }
+body.arena-playing .player-combat { grid-template-columns: clamp(130px, 10vw, 190px) minmax(0, 1fr); }
+body.arena-playing .bench-row { grid-template-columns: repeat(5, clamp(78px, 7vw, 140px)); gap: clamp(8px, .8vw, 16px); overflow: hidden; }
+body.arena-playing .active-area::before { width: clamp(150px, 12vw, 230px); height: clamp(150px, 12vw, 230px); }
+body.arena-playing .battle-pokemon.active,
+body.arena-playing .setup-card-back.active { width: clamp(130px, 10vw, 190px); }
+body.arena-playing .battle-pokemon.active img { max-height: min(23dvh, 250px); }
+body.arena-playing .battle-pokemon.bench img { max-height: min(17dvh, 185px); }
+body.arena-playing .setup-card-back.bench { width: clamp(78px, 7vw, 140px); }
+body.arena-playing .battle-pokemon-state strong { font-size: 12px; }
+body.arena-playing .battle-pokemon-state > span,
+body.arena-playing .battle-pokemon-state small { font-size: 10px; }
+body.arena-playing .trainer-strip { min-height: 34px; }
+body.arena-playing .player-summary strong { font-size: 14px; }
+body.arena-playing .player-summary div span { font-size: 11px; }
+body.arena-playing .side-zone { font-size: 10px; }
+body.arena-playing .prize-stack { grid-template-columns: repeat(2, 23px); gap: 5px; }
+body.arena-playing .prize-card { width: 23px; height: 33px; }
+body.arena-playing .deck-stack { width: 58px; height: 82px; }
+body.arena-playing .deck-stack span { font-size: 21px; }
+body.arena-playing .hand-zone { min-height: 0; padding: 10px 24px 14px; overflow: hidden; }
+body.arena-playing .hand-heading h3 { font-size: 12px; }
+body.arena-playing .hand-heading span { font-size: 11px; }
+body.arena-playing .hand-row { height: calc(100% - 18px); min-height: 0; gap: clamp(6px, .6vw, 12px); overflow: hidden; padding: 8px 10px 2px; }
+body.arena-playing .hand-card { width: clamp(100px, 8vw, 160px); flex-basis: clamp(100px, 8vw, 160px); }
+body.arena-playing .battle-line strong { font-size: 13px; }
+body.arena-playing .battle-line p { max-width: 600px; font-size: 11px; }
+body.arena-playing .context-menu { bottom: clamp(180px, 25dvh, 290px); }
+body.arena-playing .match-drawer { bottom: clamp(190px, 26dvh, 305px); }
+body.arena-playing .match-drawer-content { max-height: min(45dvh, 430px); }
+
+@media (max-width: 900px) {
+  body.arena-playing .arena-main { height: calc(100dvh - 104px); }
+}
 
 @media (max-width: 1050px) {
   .arena-intro { align-items: flex-start; flex-direction: column; gap: 18px; }

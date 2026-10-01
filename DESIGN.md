@@ -105,6 +105,10 @@ Rules:
 - Match and opponent-policy versions remain visible before play begins.
 - The game table owns its fullscreen control and must return to the exact same
   state when fullscreen closes. The `F` shortcut mirrors that control.
+- Once a match starts, Arena becomes a single-screen game surface. The page
+  intro and footer disappear, the board fills the viewport below the global
+  header, and the page, hand, and Bench do not scroll. Cards and zones scale
+  with the viewport instead of remaining at dashboard-sized fixed pixels.
 - Pregame uses a focused overlay only for the coin call, turn-order choice,
   and optional mulligan draw. Coin choices look and behave like physical coin
   faces, never generic form buttons. Active and Bench setup happens on the
