@@ -1,0 +1,226 @@
+[
+  {
+    "schemaVersion": 1,
+    "cardId": "cel25-23",
+    "sourceTextHash": "a8cfb9279cbecb51f202e7607bcde3e6f8682cc45fb102d90139f8f287b7f0b0",
+    "generatedBy": {"provider": "openai-codex", "model": "gpt-5", "responseId": "", "generatedAt": "2026-10-01T13:03:13Z"},
+    "confidence": "high",
+    "rules": [
+      {
+        "id": "supporter-professors-research", "sourceType": "trainer_rule", "sourceName": "Professor's Research", "trigger": "play_card", "cost": [], "conditions": [],
+        "effects": [
+          {"op": "discard_cards", "target": "self.hand", "amount": 0, "value": "all", "conditions": [], "parameters": [{"key": "destination", "value": "self.discard"}]},
+          {"op": "draw_cards", "target": "self", "amount": 7, "value": "", "conditions": [], "parameters": []}
+        ]
+      },
+      {
+        "id": "rule-supporter-limit", "sourceType": "trainer_rule", "sourceName": "Supporter rule", "trigger": "continuous", "cost": [], "conditions": [],
+        "effects": [{"op": "create_modifier", "target": "self.turn.supporter_plays", "amount": 1, "value": "maximum", "conditions": [], "parameters": [{"key": "duration", "value": "turn"}]}]
+      }
+    ],
+    "unsupportedText": [],
+    "notes": "Discarding the complete hand precedes drawing seven cards; the once-per-turn Supporter rule is represented separately."
+  },
+  {
+    "schemaVersion": 1,
+    "cardId": "cel25-24",
+    "sourceTextHash": "544052d2b87cde5fb25f3621f92009ad09805feb0c351a7d44fe9b36eb2a1f2b",
+    "generatedBy": {"provider": "openai-codex", "model": "gpt-5", "responseId": "", "generatedAt": "2026-10-01T13:03:13Z"},
+    "confidence": "high",
+    "rules": [
+      {
+        "id": "supporter-professors-research", "sourceType": "trainer_rule", "sourceName": "Professor's Research", "trigger": "play_card", "cost": [], "conditions": [],
+        "effects": [
+          {"op": "discard_cards", "target": "self.hand", "amount": 0, "value": "all", "conditions": [], "parameters": [{"key": "destination", "value": "self.discard"}]},
+          {"op": "draw_cards", "target": "self", "amount": 7, "value": "", "conditions": [], "parameters": []}
+        ]
+      },
+      {
+        "id": "rule-supporter-limit", "sourceType": "trainer_rule", "sourceName": "Supporter rule", "trigger": "continuous", "cost": [], "conditions": [],
+        "effects": [{"op": "create_modifier", "target": "self.turn.supporter_plays", "amount": 1, "value": "maximum", "conditions": [], "parameters": [{"key": "duration", "value": "turn"}]}]
+      }
+    ],
+    "unsupportedText": [],
+    "notes": "This print has the same effect as cel25-23 but remains source-versioned independently."
+  },
+  {
+    "schemaVersion": 1,
+    "cardId": "me1-1",
+    "sourceTextHash": "d39bc7d2dbd9a035cfc976f2bb12c44837ff2509d2426de5b1e9d106623da62a",
+    "generatedBy": {"provider": "openai-codex", "model": "gpt-5", "responseId": "", "generatedAt": "2026-10-01T13:03:13Z"},
+    "confidence": "high",
+    "rules": [
+      {
+        "id": "attack-bind-down", "sourceType": "attack", "sourceName": "Bind Down", "trigger": "attack", "cost": ["Grass"], "conditions": [],
+        "effects": [
+          {"op": "deal_damage", "target": "opponent.active", "amount": 10, "value": "", "conditions": [], "parameters": []},
+          {"op": "create_modifier", "target": "opponent.active.retreat_allowed", "amount": 0, "value": "false", "conditions": [], "parameters": [{"key": "duration", "value": "during_opponent_next_turn"}, {"key": "source", "value": "attack_effect"}]}
+        ]
+      }
+    ],
+    "unsupportedText": [],
+    "notes": "The retreat lock is attached to the current Defending Pokémon for the opponent's next turn."
+  },
+  {
+    "schemaVersion": 1,
+    "cardId": "me1-10",
+    "sourceTextHash": "d331a5fc30d09b80e7a8c1793908d886a550196016084264f325c326dfd4b57f",
+    "generatedBy": {"provider": "openai-codex", "model": "gpt-5", "responseId": "", "generatedAt": "2026-10-01T13:03:13Z"},
+    "confidence": "high",
+    "rules": [
+      {
+        "id": "ability-wild-growth", "sourceType": "ability", "sourceName": "Wild Growth", "trigger": "continuous", "cost": [], "conditions": [],
+        "effects": [{"op": "create_modifier", "target": "self.in_play.basic_grass_energy.energy_provided", "amount": 2, "value": "Grass", "conditions": [], "parameters": [{"key": "scope", "value": "all_self_pokemon"}, {"key": "stackable", "value": "false"}]}]
+      },
+      {
+        "id": "attack-solar-beam", "sourceType": "attack", "sourceName": "Solar Beam", "trigger": "attack", "cost": ["Grass", "Grass", "Colorless", "Colorless"], "conditions": [],
+        "effects": [{"op": "deal_damage", "target": "opponent.active", "amount": 140, "value": "", "conditions": [], "parameters": []}]
+      }
+    ],
+    "unsupportedText": [],
+    "notes": "Each attached Basic Grass Energy provides two Grass Energy; duplicate Wild Growth abilities do not stack."
+  },
+  {
+    "schemaVersion": 1,
+    "cardId": "me1-100",
+    "sourceTextHash": "2ba49d0570bb1de1bd9582bbdeacb7f878903b510701727c499472dafa6b5879",
+    "generatedBy": {"provider": "openai-codex", "model": "gpt-5", "responseId": "", "generatedAt": "2026-10-01T13:03:13Z"},
+    "confidence": "high",
+    "rules": [
+      {
+        "id": "attack-strafe", "sourceType": "attack", "sourceName": "Strafe", "trigger": "attack", "cost": ["Colorless"], "conditions": [],
+        "effects": [
+          {"op": "deal_damage", "target": "opponent.active", "amount": 40, "value": "", "conditions": [], "parameters": []},
+          {"op": "switch_active", "target": "self", "amount": 1, "value": "optional", "conditions": [], "parameters": [{"key": "destination", "value": "chosen_self_benched_pokemon"}, {"key": "selection", "value": "player_choice"}]}
+        ]
+      },
+      {
+        "id": "attack-illusory-impulse", "sourceType": "attack", "sourceName": "Illusory Impulse", "trigger": "attack", "cost": ["Fire", "Psychic", "Colorless"], "conditions": [],
+        "effects": [
+          {"op": "deal_damage", "target": "opponent.active", "amount": 300, "value": "", "conditions": [], "parameters": []},
+          {"op": "discard_energy", "target": "self", "amount": 0, "value": "all", "conditions": [], "parameters": [{"key": "destination", "value": "self.discard"}]}
+        ]
+      },
+      {
+        "id": "rule-mega-ex", "sourceType": "rule_box", "sourceName": "Mega Evolution ex Rule", "trigger": "on_knockout", "cost": [], "conditions": [],
+        "effects": [{"op": "set_prize_value", "target": "self", "amount": 3, "value": "", "conditions": [], "parameters": []}]
+      }
+    ],
+    "unsupportedText": [],
+    "notes": "Strafe's switch is optional and player-selected; Illusory Impulse discards every Energy attached to the attacker after damage."
+  },
+  {
+    "schemaVersion": 1,
+    "cardId": "me1-101",
+    "sourceTextHash": "855a714c9abad41eb00b9ee4a75291ea5f1fca01736474aad5bdef6126c6f8ea",
+    "generatedBy": {"provider": "openai-codex", "model": "gpt-5", "responseId": "", "generatedAt": "2026-10-01T13:03:13Z"},
+    "confidence": "high",
+    "rules": [
+      {
+        "id": "ability-lustrous-assist", "sourceType": "ability", "sourceName": "Lustrous Assist", "trigger": "activate_ability", "cost": [],
+        "conditions": [
+          {"field": "turn.is_self", "operator": "equals", "value": "true"},
+          {"field": "event.moved_to_active.name", "operator": "equals", "value": "Mega Latias ex"},
+          {"field": "event.moved_to_active.previous_location", "operator": "equals", "value": "self.bench"}
+        ],
+        "effects": [{"op": "move_energy", "target": "self.active", "amount": 0, "value": "any_amount", "conditions": [], "parameters": [{"key": "source", "value": "self.benched_pokemon"}, {"key": "energy_selection", "value": "player_choice"}, {"key": "optional", "value": "true"}]}]
+      },
+      {
+        "id": "attack-dragon-claw", "sourceType": "attack", "sourceName": "Dragon Claw", "trigger": "attack", "cost": ["Water", "Psychic", "Colorless"], "conditions": [],
+        "effects": [{"op": "deal_damage", "target": "opponent.active", "amount": 130, "value": "", "conditions": [], "parameters": []}]
+      }
+    ],
+    "unsupportedText": [],
+    "notes": "The optional ability is available only on the turn event where Mega Latias ex moves from the user's Bench to the Active Spot."
+  },
+  {
+    "schemaVersion": 1,
+    "cardId": "me1-102",
+    "sourceTextHash": "8113e994e3f42ed9450db51ee01ce033a2346909a34103b6b73f65865555981c",
+    "generatedBy": {"provider": "openai-codex", "model": "gpt-5", "responseId": "", "generatedAt": "2026-10-01T13:03:13Z"},
+    "confidence": "high",
+    "rules": [
+      {
+        "id": "attack-pluck", "sourceType": "attack", "sourceName": "Pluck", "trigger": "attack", "cost": ["Colorless"], "conditions": [],
+        "effects": [
+          {"op": "discard_cards", "target": "opponent.active.attached_pokemon_tools", "amount": 0, "value": "all", "conditions": [], "parameters": [{"key": "timing", "value": "before_damage"}, {"key": "destination", "value": "opponent.discard"}]},
+          {"op": "deal_damage", "target": "opponent.active", "amount": 10, "value": "", "conditions": [], "parameters": []}
+        ]
+      }
+    ],
+    "unsupportedText": [],
+    "notes": "All Pokémon Tools attached to the opponent's Active Pokémon are discarded before damage is applied."
+  },
+  {
+    "schemaVersion": 1,
+    "cardId": "me1-103",
+    "sourceTextHash": "48fe75f81cd0d798f9bf5d25ba2bee9ace013cd64744bc88e9fdeaecbdfc004c",
+    "generatedBy": {"provider": "openai-codex", "model": "gpt-5", "responseId": "", "generatedAt": "2026-10-01T13:03:13Z"},
+    "confidence": "high",
+    "rules": [
+      {
+        "id": "attack-repeating-drill", "sourceType": "attack", "sourceName": "Repeating Drill", "trigger": "attack", "cost": ["Colorless"], "conditions": [],
+        "effects": [
+          {"op": "flip_coin", "target": "coin", "amount": 5, "value": "", "conditions": [], "parameters": []},
+          {"op": "deal_damage", "target": "opponent.active", "amount": 30, "value": "multiply", "conditions": [], "parameters": [{"key": "multiplier_field", "value": "coin.heads"}, {"key": "timing", "value": "before_weakness_resistance"}]}
+        ]
+      }
+    ],
+    "unsupportedText": [],
+    "notes": "Exactly five coin flips are resolved and damage is thirty times the number of heads."
+  },
+  {
+    "schemaVersion": 1,
+    "cardId": "me1-104",
+    "sourceTextHash": "7140e1f2ba03be2825107177320a07258c55f14f3ba514a98166755129ff238f",
+    "generatedBy": {"provider": "openai-codex", "model": "gpt-5", "responseId": "", "generatedAt": "2026-10-01T13:03:13Z"},
+    "confidence": "high",
+    "rules": [
+      {
+        "id": "ability-run-errand", "sourceType": "ability", "sourceName": "Run Errand", "trigger": "activate_ability", "cost": [],
+        "conditions": [
+          {"field": "self.location", "operator": "equals", "value": "active"},
+          {"field": "turn.ability_used.run-errand", "operator": "not_equals", "value": "true"}
+        ],
+        "effects": [{"op": "draw_cards", "target": "self", "amount": 2, "value": "", "conditions": [], "parameters": [{"key": "usage_scope", "value": "ability_name_per_turn"}]}]
+      },
+      {
+        "id": "attack-rapid-fire-combo", "sourceType": "attack", "sourceName": "Rapid-Fire Combo", "trigger": "attack", "cost": ["Colorless", "Colorless", "Colorless"], "conditions": [],
+        "effects": [
+          {"op": "flip_coin", "target": "coin", "amount": 1, "value": "until_tails", "conditions": [], "parameters": []},
+          {"op": "deal_damage", "target": "opponent.active", "amount": 200, "value": "", "conditions": [], "parameters": []},
+          {"op": "deal_damage", "target": "opponent.active", "amount": 50, "value": "bonus_multiply", "conditions": [], "parameters": [{"key": "multiplier_field", "value": "coin.heads"}, {"key": "timing", "value": "before_weakness_resistance"}]}
+        ]
+      },
+      {
+        "id": "rule-mega-ex", "sourceType": "rule_box", "sourceName": "Mega Evolution ex Rule", "trigger": "on_knockout", "cost": [], "conditions": [],
+        "effects": [{"op": "set_prize_value", "target": "self", "amount": 3, "value": "", "conditions": [], "parameters": []}]
+      }
+    ],
+    "unsupportedText": [],
+    "notes": "Run Errand is limited by ability name across the turn. Rapid-Fire Combo flips until the first tails and adds fifty damage per preceding heads."
+  },
+  {
+    "schemaVersion": 1,
+    "cardId": "me1-105",
+    "sourceTextHash": "a0fccd7a1ca11fa7337993a35b71b1d26be4266fc8be944184af873a458ad845",
+    "generatedBy": {"provider": "openai-codex", "model": "gpt-5", "responseId": "", "generatedAt": "2026-10-01T13:03:13Z"},
+    "confidence": "high",
+    "rules": [
+      {
+        "id": "attack-quick-gift", "sourceType": "attack", "sourceName": "Quick Gift", "trigger": "attack", "cost": ["Colorless"], "conditions": [],
+        "effects": [
+          {"op": "create_modifier", "target": "current_attack.usable_on_first_turn_when_going_first", "amount": 1, "value": "true", "conditions": [], "parameters": [{"key": "scope", "value": "attack_legality"}]},
+          {"op": "choose_cards", "target": "self.deck", "amount": 1, "value": "exactly_one", "conditions": [], "parameters": [{"key": "filter", "value": "any_card"}, {"key": "destination", "value": "self.hand"}, {"key": "selection", "value": "player_choice"}]},
+          {"op": "shuffle_cards", "target": "self.deck", "amount": 0, "value": "all", "conditions": [], "parameters": []}
+        ]
+      },
+      {
+        "id": "attack-gentle-slap", "sourceType": "attack", "sourceName": "Gentle Slap", "trigger": "attack", "cost": ["Colorless", "Colorless"], "conditions": [],
+        "effects": [{"op": "deal_damage", "target": "opponent.active", "amount": 30, "value": "", "conditions": [], "parameters": []}]
+      }
+    ],
+    "unsupportedText": [],
+    "notes": "Quick Gift explicitly grants the first-turn-going-first attack exception, searches for any one card, then shuffles the deck."
+  }
+]

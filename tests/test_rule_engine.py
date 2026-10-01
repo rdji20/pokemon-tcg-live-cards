@@ -28,3 +28,25 @@ def test_coin_effect_resolution_is_seeded_and_conditional():
     assert first[0]["op"] == "flip_coin"
     if first[0]["result"] == "heads":
         assert first[1]["op"] == "discard_energy"
+
+
+def test_multiple_and_until_tails_coin_flips_are_deterministic():
+    fixed = {
+        "rules": [{
+            "id": "fixed", "conditions": [],
+            "effects": [{"op": "flip_coin", "target": "coin", "amount": 5, "value": "", "conditions": []}],
+        }],
+    }
+    repeated = executable_effects(fixed, "fixed", {}, seed=7)[0]
+    assert len(repeated["results"]) == 5
+    assert repeated["heads"] == repeated["results"].count("heads")
+
+    until_tails = {
+        "rules": [{
+            "id": "until-tails", "conditions": [],
+            "effects": [{"op": "flip_coin", "target": "coin", "amount": 1, "value": "until_tails", "conditions": []}],
+        }],
+    }
+    result = executable_effects(until_tails, "until-tails", {}, seed=7)[0]
+    assert result["results"][-1] == "tails"
+    assert result["heads"] == len(result["results"]) - 1

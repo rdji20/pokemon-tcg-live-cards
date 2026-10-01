@@ -17,6 +17,7 @@ ALLOWED_OPERATIONS = {
     "discard_cards", "discard_energy", "draw_cards", "flip_coin",
     "inspect_top_deck", "knockout", "move_cards", "move_energy",
     "set_prize_value", "shuffle_cards", "shuffle_zone_into_deck",
+    "switch_active",
 }
 ALLOWED_OPERATORS = {"equals", "not_equals", "at_least", "exists", "contains", "not_contains"}
 
@@ -159,8 +160,23 @@ def executable_effects(
             continue
         item = dict(effect)
         if effect["op"] == "flip_coin":
-            outcome = "heads" if rng.randrange(2) == 0 else "tails"
-            resolved_context[effect.get("target") or "coin"] = outcome
-            item["result"] = outcome
+            target = effect.get("target") or "coin"
+            amount = max(1, int(effect.get("amount") or 1))
+            if effect.get("value") == "until_tails":
+                outcomes = []
+                while not outcomes or outcomes[-1] != "tails":
+                    outcomes.append("heads" if rng.randrange(2) == 0 else "tails")
+            elif amount > 1:
+                outcomes = ["heads" if rng.randrange(2) == 0 else "tails" for _ in range(amount)]
+            else:
+                outcome = "heads" if rng.randrange(2) == 0 else "tails"
+                resolved_context[target] = outcome
+                item["result"] = outcome
+                result.append(item)
+                continue
+            heads = outcomes.count("heads")
+            resolved_context[target] = {"results": outcomes, "heads": heads}
+            item["results"] = outcomes
+            item["heads"] = heads
         result.append(item)
     return result
