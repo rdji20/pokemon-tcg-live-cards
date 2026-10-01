@@ -50,3 +50,15 @@ def test_multiple_and_until_tails_coin_flips_are_deterministic():
     result = executable_effects(until_tails, "until-tails", {}, seed=7)[0]
     assert result["results"][-1] == "tails"
     assert result["heads"] == len(result["results"]) - 1
+
+
+def test_at_most_condition_enforces_a_prize_threshold():
+    program = {
+        "rules": [{
+            "id": "prize-threshold",
+            "conditions": [{"field": "opponent.prizes", "operator": "at_most", "value": 2}],
+            "effects": [{"op": "create_modifier", "target": "self", "amount": 0, "value": "protected", "conditions": []}],
+        }],
+    }
+    assert executable_effects(program, "prize-threshold", {"opponent": {"prizes": 2}})
+    assert executable_effects(program, "prize-threshold", {"opponent": {"prizes": 3}}) == []

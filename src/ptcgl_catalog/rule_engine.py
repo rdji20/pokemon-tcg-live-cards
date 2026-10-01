@@ -15,11 +15,11 @@ ALLOWED_TRIGGERS = {
 ALLOWED_OPERATIONS = {
     "choose_cards", "confuse", "create_modifier", "deal_damage",
     "discard_cards", "discard_energy", "draw_cards", "flip_coin",
-    "inspect_top_deck", "knockout", "move_cards", "move_energy",
+    "heal_damage", "inspect_top_deck", "knockout", "move_cards", "move_energy",
     "set_prize_value", "shuffle_cards", "shuffle_zone_into_deck",
-    "switch_active",
+    "swap_cards", "switch_active",
 }
-ALLOWED_OPERATORS = {"equals", "not_equals", "at_least", "exists", "contains", "not_contains"}
+ALLOWED_OPERATORS = {"equals", "not_equals", "at_least", "at_most", "exists", "contains", "not_contains"}
 
 
 def card_source_text(card: dict[str, Any]) -> str:
@@ -133,6 +133,8 @@ def _condition_matches(condition: dict[str, Any], context: dict[str, Any]) -> bo
         return expected not in (actual or [])
     if operator == "at_least":
         return float(actual or 0) >= float(expected)
+    if operator == "at_most":
+        return float(actual or 0) <= float(expected)
     if operator == "not_equals":
         return str(actual).lower() != str(expected).lower()
     return str(actual).lower() == str(expected).lower()

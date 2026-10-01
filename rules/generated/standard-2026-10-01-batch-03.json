@@ -1,0 +1,212 @@
+[
+  {
+    "schemaVersion": 1,
+    "cardId": "me1-106",
+    "sourceTextHash": "a0d8851af7cc2d886876d15d6e07d1bbf401f6c5932b536d7ee45dd6fe451dea",
+    "generatedBy": {"provider": "openai-codex", "model": "gpt-5", "responseId": "", "generatedAt": "2026-10-01T14:26:06Z"},
+    "confidence": "high",
+    "rules": [
+      {
+        "id": "attack-bellyful-of-milk", "sourceType": "attack", "sourceName": "Bellyful of Milk", "trigger": "attack", "cost": ["Colorless", "Colorless"], "conditions": [],
+        "effects": [
+          {"op": "flip_coin", "target": "coin", "amount": 2, "value": "", "conditions": [], "parameters": []},
+          {"op": "heal_damage", "target": "chosen_self_pokemon", "amount": 0, "value": "all", "conditions": [{"field": "coin.heads", "operator": "at_least", "value": 2}], "parameters": [{"key": "selection", "value": "player_choice"}]}
+        ]
+      },
+      {
+        "id": "attack-tackle", "sourceType": "attack", "sourceName": "Tackle", "trigger": "attack", "cost": ["Colorless", "Colorless", "Colorless"], "conditions": [],
+        "effects": [{"op": "deal_damage", "target": "opponent.active", "amount": 60, "value": "", "conditions": [], "parameters": []}]
+      }
+    ],
+    "unsupportedText": [],
+    "notes": "Bellyful of Milk heals all damage from one player-chosen Pokémon only when both fixed coin flips are heads."
+  },
+  {
+    "schemaVersion": 1,
+    "cardId": "me1-107",
+    "sourceTextHash": "fc8a3743f1385be9e62f4fdc4b41a3332e24394f74a76cdc238586b55530230e",
+    "generatedBy": {"provider": "openai-codex", "model": "gpt-5", "responseId": "", "generatedAt": "2026-10-01T14:26:06Z"},
+    "confidence": "high",
+    "rules": [
+      {
+        "id": "attack-charm", "sourceType": "attack", "sourceName": "Charm", "trigger": "attack", "cost": ["Colorless"], "conditions": [],
+        "effects": [{"op": "create_modifier", "target": "opponent.active.attacks.damage", "amount": -20, "value": "add", "conditions": [], "parameters": [{"key": "duration", "value": "during_opponent_next_turn"}, {"key": "timing", "value": "before_weakness_resistance"}, {"key": "applies_to", "value": "defending_pokemon"}]}]
+      },
+      {
+        "id": "attack-skip", "sourceType": "attack", "sourceName": "Skip", "trigger": "attack", "cost": ["Colorless"], "conditions": [],
+        "effects": [{"op": "deal_damage", "target": "opponent.active", "amount": 10, "value": "", "conditions": [], "parameters": []}]
+      }
+    ],
+    "unsupportedText": [],
+    "notes": "Charm reduces damage from attacks used by the current Defending Pokémon during the opponent's next turn before Weakness and Resistance."
+  },
+  {
+    "schemaVersion": 1,
+    "cardId": "me1-108",
+    "sourceTextHash": "8cfc5c43545c04f899564fb8cfc6d547ed0bd51350b6e536c4a1e8f04e15706d",
+    "generatedBy": {"provider": "openai-codex", "model": "gpt-5", "responseId": "", "generatedAt": "2026-10-01T14:26:06Z"},
+    "confidence": "high",
+    "rules": [
+      {
+        "id": "attack-dashing-kick", "sourceType": "attack", "sourceName": "Dashing Kick", "trigger": "attack", "cost": ["Colorless"], "conditions": [],
+        "effects": [{"op": "deal_damage", "target": "chosen_opponent_benched_pokemon", "amount": 50, "value": "", "conditions": [], "parameters": [{"key": "selection", "value": "player_choice"}, {"key": "apply_weakness_resistance", "value": "false"}]}]
+      },
+      {
+        "id": "attack-spiral-kick", "sourceType": "attack", "sourceName": "Spiral Kick", "trigger": "attack", "cost": ["Colorless", "Colorless"], "conditions": [],
+        "effects": [{"op": "deal_damage", "target": "opponent.active", "amount": 60, "value": "", "conditions": [], "parameters": []}]
+      }
+    ],
+    "unsupportedText": [],
+    "notes": "Dashing Kick targets one opponent Benched Pokémon and explicitly bypasses Weakness and Resistance."
+  },
+  {
+    "schemaVersion": 1,
+    "cardId": "me1-109",
+    "sourceTextHash": "b56e5a0416b56f2e386e7c4acd69ea1f8e2eeca05bbd7abedf390c084a21c248",
+    "generatedBy": {"provider": "openai-codex", "model": "gpt-5", "responseId": "", "generatedAt": "2026-10-01T14:26:06Z"},
+    "confidence": "high",
+    "rules": [
+      {
+        "id": "attack-collect", "sourceType": "attack", "sourceName": "Collect", "trigger": "attack", "cost": ["Colorless"], "conditions": [],
+        "effects": [{"op": "draw_cards", "target": "self", "amount": 1, "value": "", "conditions": [], "parameters": []}]
+      },
+      {
+        "id": "attack-gnaw", "sourceType": "attack", "sourceName": "Gnaw", "trigger": "attack", "cost": ["Colorless", "Colorless"], "conditions": [],
+        "effects": [{"op": "deal_damage", "target": "opponent.active", "amount": 20, "value": "", "conditions": [], "parameters": []}]
+      }
+    ],
+    "unsupportedText": [],
+    "notes": "Collect draws exactly one card; Gnaw applies its printed base damage."
+  },
+  {
+    "schemaVersion": 1,
+    "cardId": "me1-11",
+    "sourceTextHash": "d6b76d233b9544c2800b60fa5441c5ff50211efee36f9be3bd7a618e1c9c862c",
+    "generatedBy": {"provider": "openai-codex", "model": "gpt-5", "responseId": "", "generatedAt": "2026-10-01T14:26:06Z"},
+    "confidence": "high",
+    "rules": [
+      {
+        "id": "ability-fermented-juice", "sourceType": "ability", "sourceName": "Fermented Juice", "trigger": "activate_ability", "cost": [],
+        "conditions": [
+          {"field": "turn.is_self", "operator": "equals", "value": "true"},
+          {"field": "self.attached_energy.types", "operator": "contains", "value": "Grass"},
+          {"field": "turn.ability_used.ability-fermented-juice", "operator": "not_equals", "value": "true"}
+        ],
+        "effects": [{"op": "heal_damage", "target": "chosen_self_pokemon", "amount": 30, "value": "", "conditions": [], "parameters": [{"key": "selection", "value": "player_choice"}, {"key": "optional", "value": "true"}]}]
+      },
+      {
+        "id": "attack-rollout", "sourceType": "attack", "sourceName": "Rollout", "trigger": "attack", "cost": ["Grass", "Colorless"], "conditions": [],
+        "effects": [{"op": "deal_damage", "target": "opponent.active", "amount": 30, "value": "", "conditions": [], "parameters": []}]
+      }
+    ],
+    "unsupportedText": [],
+    "notes": "Fermented Juice requires at least one attached Grass Energy, is optional and once per turn, and heals one chosen friendly Pokémon."
+  },
+  {
+    "schemaVersion": 1,
+    "cardId": "me1-110",
+    "sourceTextHash": "5caccbe2d153e95874e1c8982211858d24d347a118b4b3757c72b15d45712475",
+    "generatedBy": {"provider": "openai-codex", "model": "gpt-5", "responseId": "", "generatedAt": "2026-10-01T14:26:06Z"},
+    "confidence": "high",
+    "rules": [
+      {
+        "id": "ability-evidence-gathering", "sourceType": "ability", "sourceName": "Evidence Gathering", "trigger": "activate_ability", "cost": [],
+        "conditions": [
+          {"field": "turn.is_self", "operator": "equals", "value": "true"},
+          {"field": "turn.ability_used.ability-evidence-gathering", "operator": "not_equals", "value": "true"}
+        ],
+        "effects": [{"op": "swap_cards", "target": "self", "amount": 1, "value": "simultaneous", "conditions": [], "parameters": [{"key": "first", "value": "chosen_card_from_self.hand"}, {"key": "second", "value": "self.deck.top"}, {"key": "selection", "value": "player_choice"}, {"key": "optional", "value": "true"}]}]
+      },
+      {
+        "id": "attack-bite", "sourceType": "attack", "sourceName": "Bite", "trigger": "attack", "cost": ["Colorless", "Colorless"], "conditions": [],
+        "effects": [{"op": "deal_damage", "target": "opponent.active", "amount": 50, "value": "", "conditions": [], "parameters": []}]
+      }
+    ],
+    "unsupportedText": [],
+    "notes": "Evidence Gathering atomically exchanges one chosen hand card with the current top card of the deck and is optional once per turn."
+  },
+  {
+    "schemaVersion": 1,
+    "cardId": "me1-111",
+    "sourceTextHash": "679a1aec29b6ff8eef260a7c27ef777451796ab2aaecaa04408ed9698f744641",
+    "generatedBy": {"provider": "openai-codex", "model": "gpt-5", "responseId": "", "generatedAt": "2026-10-01T14:26:06Z"},
+    "confidence": "high",
+    "rules": [
+      {
+        "id": "attack-light-punch", "sourceType": "attack", "sourceName": "Light Punch", "trigger": "attack", "cost": ["Colorless"], "conditions": [],
+        "effects": [{"op": "deal_damage", "target": "opponent.active", "amount": 10, "value": "", "conditions": [], "parameters": []}]
+      },
+      {
+        "id": "attack-flop", "sourceType": "attack", "sourceName": "Flop", "trigger": "attack", "cost": ["Colorless", "Colorless"], "conditions": [],
+        "effects": [{"op": "deal_damage", "target": "opponent.active", "amount": 20, "value": "", "conditions": [], "parameters": []}]
+      }
+    ],
+    "unsupportedText": [],
+    "notes": "Both attacks contain only their printed base damage."
+  },
+  {
+    "schemaVersion": 1,
+    "cardId": "me1-112",
+    "sourceTextHash": "03998f2a92c0056ba08de76b3a202076f382dd19611ffa8cb0101c43353e4205",
+    "generatedBy": {"provider": "openai-codex", "model": "gpt-5", "responseId": "", "generatedAt": "2026-10-01T14:26:06Z"},
+    "confidence": "high",
+    "rules": [
+      {
+        "id": "attack-knuckle-punch", "sourceType": "attack", "sourceName": "Knuckle Punch", "trigger": "attack", "cost": ["Colorless", "Colorless"], "conditions": [],
+        "effects": [{"op": "deal_damage", "target": "opponent.active", "amount": 50, "value": "", "conditions": [], "parameters": []}]
+      },
+      {
+        "id": "attack-hyper-lariat", "sourceType": "attack", "sourceName": "Hyper Lariat", "trigger": "attack", "cost": ["Colorless", "Colorless", "Colorless"], "conditions": [],
+        "effects": [
+          {"op": "flip_coin", "target": "coin", "amount": 2, "value": "", "conditions": [], "parameters": []},
+          {"op": "deal_damage", "target": "opponent.active", "amount": 100, "value": "", "conditions": [], "parameters": []},
+          {"op": "deal_damage", "target": "opponent.active", "amount": 100, "value": "bonus", "conditions": [{"field": "coin.heads", "operator": "at_least", "value": 2}], "parameters": [{"key": "timing", "value": "before_weakness_resistance"}]}
+        ]
+      }
+    ],
+    "unsupportedText": [],
+    "notes": "Hyper Lariat always deals one hundred base damage and adds one hundred only when both flips are heads."
+  },
+  {
+    "schemaVersion": 1,
+    "cardId": "me1-113",
+    "sourceTextHash": "32c90bebff0e3e2ba53563d4df9ef7310dc5e9219ba88804876cd5904aee22ac",
+    "generatedBy": {"provider": "openai-codex", "model": "gpt-5", "responseId": "", "generatedAt": "2026-10-01T14:26:06Z"},
+    "confidence": "high",
+    "rules": [
+      {
+        "id": "supporter-acerolas-mischief", "sourceType": "trainer_rule", "sourceName": "Acerola's Mischief", "trigger": "play_card", "cost": [],
+        "conditions": [{"field": "opponent.prize_cards_remaining", "operator": "at_most", "value": 2}],
+        "effects": [
+          {"op": "create_modifier", "target": "chosen_self_pokemon.damage_received", "amount": 0, "value": "prevent_all", "conditions": [], "parameters": [{"key": "selection", "value": "player_choice"}, {"key": "duration", "value": "during_opponent_next_turn"}, {"key": "source_filter", "value": "opponent.pokemon_ex.attacks"}]},
+          {"op": "create_modifier", "target": "chosen_self_pokemon.attack_effects_received", "amount": 0, "value": "prevent_all", "conditions": [], "parameters": [{"key": "selection", "value": "same_chosen_pokemon"}, {"key": "duration", "value": "during_opponent_next_turn"}, {"key": "source_filter", "value": "opponent.pokemon_ex.attacks"}]}
+        ]
+      },
+      {
+        "id": "rule-supporter-limit", "sourceType": "trainer_rule", "sourceName": "Supporter rule", "trigger": "continuous", "cost": [], "conditions": [],
+        "effects": [{"op": "create_modifier", "target": "self.turn.supporter_plays", "amount": 1, "value": "maximum", "conditions": [], "parameters": [{"key": "duration", "value": "turn"}]}]
+      }
+    ],
+    "unsupportedText": [],
+    "notes": "The play restriction checks the opponent's remaining Prizes. Both attack damage and attack effects from opponent Pokémon ex are prevented for the same chosen Pokémon during the opponent's next turn."
+  },
+  {
+    "schemaVersion": 1,
+    "cardId": "me1-114",
+    "sourceTextHash": "314a8f75d34f7d48fe47f038e4fb56da295fe53a70127e1a766461400701ca42",
+    "generatedBy": {"provider": "openai-codex", "model": "gpt-5", "responseId": "", "generatedAt": "2026-10-01T14:26:06Z"},
+    "confidence": "high",
+    "rules": [
+      {
+        "id": "supporter-bosss-orders", "sourceType": "trainer_rule", "sourceName": "Boss's Orders", "trigger": "play_card", "cost": [], "conditions": [],
+        "effects": [{"op": "switch_active", "target": "opponent", "amount": 1, "value": "forced", "conditions": [], "parameters": [{"key": "destination", "value": "chosen_opponent_benched_pokemon"}, {"key": "selection", "value": "player_choice"}]}]
+      },
+      {
+        "id": "rule-supporter-limit", "sourceType": "trainer_rule", "sourceName": "Supporter rule", "trigger": "continuous", "cost": [], "conditions": [],
+        "effects": [{"op": "create_modifier", "target": "self.turn.supporter_plays", "amount": 1, "value": "maximum", "conditions": [], "parameters": [{"key": "duration", "value": "turn"}]}]
+      }
+    ],
+    "unsupportedText": [],
+    "notes": "The player chooses one opponent Benched Pokémon and forces it into the opponent's Active Spot; the Supporter play limit is separate."
+  }
+]
