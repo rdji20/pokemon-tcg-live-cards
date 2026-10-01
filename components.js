@@ -86,7 +86,7 @@
 
   function handCard(card) {
     return `
-      <article class="hand-card" data-card-uid="${escapeHtml(card.uid)}">
+      <article class="hand-card" data-card-uid="${escapeHtml(card.uid)}" draggable="true" tabindex="0" role="button" aria-label="Select ${escapeHtml(card.name)}">
         <img src="${escapeHtml(card.image || '')}" alt="${escapeHtml(card.name)} card">
         <strong>${escapeHtml(card.name)}</strong>
       </article>

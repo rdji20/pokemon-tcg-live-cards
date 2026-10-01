@@ -91,9 +91,15 @@ restrained red player side and blue opponent side without tinting card artwork.
 
 Rules:
 
-- Legal actions come from the server and remain in a fixed action dock.
-- Selecting a hand card highlights its legal actions; selecting a valid field
-  target completes targeted actions such as Energy attachment.
+- Legal actions come from the server, but they are expressed through the game
+  objects instead of a permanent action-button strip.
+- Hand cards are the primary controls. Selecting or dragging a card highlights
+  valid field targets; clicking or dropping onto the target completes Energy
+  attachment, evolution, Benching, or a targeted Trainer effect.
+- Clicking the Active Pokémon opens only its current attacks and enables valid
+  retreat targets. End Turn is a single persistent HUD action.
+- Hand artwork must remain fully visible at rest and while selected. Never crop
+  a card to make the hand fit; use horizontal scrolling instead.
 - Any partially supported attack says `base damage only` in its action label.
 - Never represent an ignored card effect as executed.
 - Match and opponent-policy versions remain visible before play begins.
@@ -102,8 +108,8 @@ Rules:
 - Pregame rules use a centered Setup Overlay on the same table. Coin call,
   turn-order choice, mulligan draws, Active selection, Bench selection, and
   Prize setup remain visible steps rather than an automatic jump to Turn 1.
-- At narrow widths, move the action dock below the board and preserve
-  horizontally scrollable hands and Benches rather than shrinking the cards.
+- At narrow widths, preserve horizontally scrollable hands and Benches rather
+  than shrinking the cards until their art is illegible.
 
 ### Validation result
 

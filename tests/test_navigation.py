@@ -66,8 +66,11 @@ def test_arena_has_game_field_and_fullscreen_control():
     assert 'id="fullscreenButton"' in markup
     assert 'id="setupOverlay"' in markup
     assert 'id="setupActionList"' in markup
+    assert 'id="endTurnButton"' in markup
+    assert 'id="contextMenu"' in markup
     assert 'id="opponentHand"' in markup
     assert 'class="field-side opponent-side"' in markup
     assert 'class="field-side player-side"' in markup
     assert 'class="game-ball"' in markup
+    assert 'class="command-bar"' not in markup
     assert markup.index("components.js") < markup.index("arena.js")

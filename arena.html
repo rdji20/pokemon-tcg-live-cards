@@ -10,7 +10,7 @@
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=Roboto:wght@400;500;700&display=swap" rel="stylesheet">
   <link rel="stylesheet" href="styles.css">
-  <link rel="stylesheet" href="arena.css?v=4">
+  <link rel="stylesheet" href="arena.css?v=5">
 </head>
 <body>
   <header class="site-header">
@@ -63,6 +63,7 @@
           </div>
           <div class="turn-status"><strong id="turnStatus">Your turn</strong><span id="turnNumber">Turn 1</span></div>
           <div class="game-controls">
+            <button class="end-turn-control" id="endTurnButton" type="button" hidden>End turn <span aria-hidden="true">→</span></button>
             <button id="fullscreenButton" type="button" aria-label="Enter fullscreen Arena"><span class="fullscreen-icon" aria-hidden="true"></span><span id="fullscreenLabel">Fullscreen</span></button>
             <button id="newMatchButton" type="button">New match</button>
           </div>
@@ -120,9 +121,10 @@
           </section>
         </div>
 
-        <section class="command-bar" aria-label="Available actions">
-          <div class="command-title"><span>Legal moves</span><strong>Choose your play</strong></div>
-          <div class="action-list" id="actionList"></div>
+        <section class="context-menu" id="contextMenu" hidden aria-live="polite">
+          <div><span>Selected play</span><strong id="contextTitle">Choose an action</strong></div>
+          <div class="context-actions" id="contextActions"></div>
+          <button class="context-cancel" id="contextCancel" type="button" aria-label="Cancel selection">×</button>
         </section>
 
         <details class="match-drawer">
@@ -137,7 +139,7 @@
   </main>
 
   <footer><span>Pokémon TCG Live Cards</span><p>Build · play · improve</p></footer>
-  <script src="components.js?v=2" defer></script>
-  <script src="arena.js?v=3" defer></script>
+  <script src="components.js?v=3" defer></script>
+  <script src="arena.js?v=4" defer></script>
 </body>
 </html>

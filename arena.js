@@ -1,14 +1,15 @@
-const arenaState = { game: null, busy: false, selectedCardUid: null };
+const arenaState = { game: null, busy: false, selectedCardUid: null, selectedSource: null };
 
 const arenaEl = Object.fromEntries([
   'arenaStatus', 'arenaLobby', 'startMatchForm', 'playerDeck', 'opponentType',
   'arenaSeed', 'startMatchButton', 'lobbyMessage', 'gameShell', 'turnStatus',
   'turnNumber', 'newMatchButton', 'gameTable', 'fullscreenButton', 'fullscreenLabel',
+  'endTurnButton', 'contextMenu', 'contextTitle', 'contextActions', 'contextCancel',
   'battlePhase', 'setupOverlay', 'setupCoin', 'setupStep', 'setupTitle',
   'setupText', 'setupActionList', 'setupFacts', 'opponentName', 'opponentCounts', 'opponentHand',
   'opponentBench', 'opponentPrizes', 'opponentActive', 'opponentDeck',
   'playerName', 'playerCounts', 'playerBench', 'playerPrizes', 'playerActive',
-  'playerDeckStack', 'playerHand', 'handCount', 'battleMessage', 'actionList',
+  'playerDeckStack', 'playerHand', 'handCount', 'battleMessage',
   'battleLog', 'arenaLimitations'
 ].map(id => [id, document.getElementById(id)]));
 
@@ -91,6 +92,7 @@ function renderSetup(game) {
 function renderGame(game) {
   arenaState.game = game;
   arenaState.selectedCardUid = null;
+  arenaState.selectedSource = null;
   arenaEl.arenaLobby.hidden = true;
   arenaEl.gameShell.hidden = false;
   arenaEl.arenaStatus.textContent = game.status === 'finished' ? 'Match finished' : (game.status === 'setup' ? 'Match setup' : `Turn ${game.turn}`);
@@ -103,12 +105,19 @@ function renderGame(game) {
     : (game.status === 'setup' ? game.prompt.title : (game.isPlayerTurn ? 'Main phase' : 'Opponent thinking'));
   arenaEl.battleMessage.textContent = game.status === 'finished'
     ? `${game.winner === 'player' ? 'Victory' : 'Defeat'} · ${String(game.reason || '').replace('_', ' ')}`
-    : (game.status === 'setup' ? game.prompt.text : 'Choose one legal action. An attack ends your turn.');
+    : (game.status === 'setup' ? game.prompt.text : 'Select or drag a card, or click your Active Pokémon to attack.');
   renderPlayer('opponent', game.opponent);
   renderPlayer('player', game.player, true);
   renderSetup(game);
 
-  arenaEl.actionList.innerHTML = actionMarkup(game.legalActions);
+  arenaEl.contextMenu.hidden = true;
+  const endTurnIndex = game.legalActions.findIndex(action => action.type === 'end_turn');
+  arenaEl.endTurnButton.hidden = endTurnIndex < 0;
+  arenaEl.endTurnButton.dataset.actionIndex = endTurnIndex;
+  if (game.phase === 'playing' && game.legalActions.some(action => action.type === 'promote')) {
+    game.legalActions.filter(action => action.type === 'promote').forEach(action => markTarget(action.targetUid));
+    arenaEl.battleMessage.textContent = 'Choose a Benched Pokémon to move into the Active Spot.';
+  }
   arenaEl.battleLog.innerHTML = [...game.log].reverse().map(item => `<li>${escapeHtml(item)}</li>`).join('');
   arenaEl.arenaLimitations.innerHTML = [
     ...(game.ruleCoverage || []).map(item => `${item.rule}: ${item.status} — ${item.detail}`),
@@ -138,7 +147,7 @@ async function startMatch(event) {
   if (!arenaEl.playerDeck.value || arenaState.busy) return;
   arenaState.busy = true;
   arenaEl.startMatchButton.disabled = true;
-  arenaEl.lobbyMessage.textContent = 'Shuffling decks and setting Prize cards…';
+  arenaEl.lobbyMessage.textContent = 'Preparing the decks and opening coin flip…';
   try {
     renderGame(await arenaApi('/api/arena/sessions', {
       method: 'POST',
@@ -167,6 +176,7 @@ async function submitAction(action) {
     }));
   } catch (error) {
     arenaEl.battleMessage.textContent = error.message;
+    document.querySelectorAll('[data-action-index]').forEach(item => { item.disabled = false; });
   } finally {
     arenaState.busy = false;
   }
@@ -178,32 +188,120 @@ function playAction(event) {
   submitAction(arenaState.game.legalActions[Number(button.dataset.actionIndex)]);
 }
 
+function indexedActions(predicate) {
+  return arenaState.game.legalActions
+    .map((action, index) => ({ action, index }))
+    .filter(item => predicate(item.action));
+}
+
+function clearInteraction() {
+  arenaState.selectedCardUid = null;
+  arenaState.selectedSource = null;
+  arenaEl.contextMenu.hidden = true;
+  arenaEl.contextActions.replaceChildren();
+  arenaEl.playerHand.querySelectorAll('.hand-card').forEach(item => item.classList.remove('selected'));
+  arenaEl.gameTable.querySelectorAll('.target-ready').forEach(item => item.classList.remove('target-ready'));
+  arenaEl.playerBench.classList.remove('target-ready-zone');
+}
+
+function markTarget(uid) {
+  arenaEl.gameTable.querySelectorAll('[data-pokemon-uid]').forEach(item => {
+    if (item.dataset.pokemonUid === uid) item.classList.add('target-ready');
+  });
+}
+
+function showContext(title, items) {
+  arenaEl.contextTitle.textContent = title;
+  arenaEl.contextActions.innerHTML = items.map(({ action, index }) =>
+    `<button type="button" data-action-index="${index}" class="context-${escapeHtml(action.type)}">${escapeHtml(action.label.replace(/^Attack:\s*/, ''))}</button>`
+  ).join('');
+  arenaEl.contextMenu.hidden = items.length === 0;
+}
+
 function selectHandCard(event) {
   const card = event.target.closest('[data-card-uid]');
-  if (!card || !arenaState.game || arenaState.busy) return;
+  if (!card || !arenaState.game || arenaState.busy || arenaState.game.status !== 'playing') return;
   const cardUid = card.dataset.cardUid;
-  const related = arenaState.game.legalActions
-    .map((action, index) => ({ action, index }))
-    .filter(item => item.action.cardUid === cardUid);
-  arenaEl.playerHand.querySelectorAll('.hand-card').forEach(item => item.classList.toggle('selected', item === card));
-  arenaEl.actionList.querySelectorAll('button').forEach(button => {
-    button.classList.toggle('related', related.some(item => item.index === Number(button.dataset.actionIndex)));
-    button.classList.toggle('unrelated', related.length > 0 && !related.some(item => item.index === Number(button.dataset.actionIndex)));
-  });
-  arenaState.selectedCardUid = related.length ? cardUid : null;
-  arenaEl.battleMessage.textContent = related.length
-    ? (related.some(item => item.action.targetUid) ? 'Now choose a highlighted move or click one of your Pokémon.' : 'Choose the highlighted move to play this card.')
-    : 'That card has no legal play right now.';
+  const related = indexedActions(action => action.cardUid === cardUid);
+  clearInteraction();
+  if (!related.length) {
+    arenaEl.battleMessage.textContent = 'That card cannot be played right now.';
+    return;
+  }
+  arenaState.selectedCardUid = cardUid;
+  card.classList.add('selected');
+  related.filter(item => item.action.targetUid).forEach(item => markTarget(item.action.targetUid));
+  const benchPlay = related.some(item => item.action.type === 'bench');
+  if (benchPlay) arenaEl.playerBench.classList.add('target-ready-zone');
+  const immediate = related.filter(item => !item.action.targetUid && item.action.type !== 'bench');
+  showContext(card.querySelector('strong')?.textContent || 'Selected card', immediate);
+  arenaEl.battleMessage.textContent = related.some(item => item.action.targetUid)
+    ? 'Choose a glowing Pokémon as the target.'
+    : (benchPlay ? 'Click or drop the card onto an open Bench spot.' : 'Confirm the selected card play.');
 }
 
 function selectPokemon(event) {
   const pokemon = event.target.closest('[data-pokemon-uid]');
   if (!pokemon || !arenaState.game || arenaState.busy) return;
   const targetUid = pokemon.dataset.pokemonUid;
-  const matching = arenaState.game.legalActions.filter(action =>
-    action.targetUid === targetUid && (!arenaState.selectedCardUid || action.cardUid === arenaState.selectedCardUid)
+  const matching = arenaState.game.legalActions.filter(action => {
+    if (action.targetUid !== targetUid) return false;
+    if (arenaState.selectedCardUid) return action.cardUid === arenaState.selectedCardUid;
+    if (action.cardUid) return false;
+    return action.type === 'promote' || arenaState.selectedSource === 'active';
+  });
+  if (matching.length === 1) {
+    submitAction(matching[0]);
+    return;
+  }
+  if (arenaState.selectedCardUid) return;
+  const activeCard = event.currentTarget === arenaEl.playerActive || pokemon.closest('#playerActive');
+  if (!activeCard) return;
+  clearInteraction();
+  arenaState.selectedSource = 'active';
+  const attacks = indexedActions(action => action.type === 'attack');
+  const retreats = indexedActions(action => action.type === 'retreat');
+  retreats.forEach(item => markTarget(item.action.targetUid));
+  showContext(pokemon.querySelector('strong')?.textContent || 'Active Pokémon', attacks);
+  arenaEl.battleMessage.textContent = attacks.length && retreats.length
+    ? 'Choose an attack, or click a glowing Benched Pokémon to retreat.'
+    : (attacks.length ? 'Choose an attack.' : 'Click a glowing Benched Pokémon to retreat.');
+}
+
+function selectBenchZone(event) {
+  if (event.target.closest('[data-pokemon-uid]')) {
+    selectPokemon(event);
+    return;
+  }
+  if (!arenaState.selectedCardUid || arenaState.busy) return;
+  const action = arenaState.game.legalActions.find(item => item.type === 'bench' && item.cardUid === arenaState.selectedCardUid);
+  if (action) submitAction(action);
+}
+
+function beginCardDrag(event) {
+  const card = event.target.closest('[data-card-uid]');
+  if (!card) return;
+  selectHandCard({ target: card });
+  event.dataTransfer.effectAllowed = 'move';
+  event.dataTransfer.setData('text/plain', card.dataset.cardUid);
+}
+
+function allowCardDrop(event) {
+  if (!arenaState.selectedCardUid) return;
+  const target = event.target.closest('[data-pokemon-uid]');
+  const canTarget = target && arenaState.game.legalActions.some(action => action.cardUid === arenaState.selectedCardUid && action.targetUid === target.dataset.pokemonUid);
+  const canBench = event.currentTarget === arenaEl.playerBench && arenaState.game.legalActions.some(action => action.type === 'bench' && action.cardUid === arenaState.selectedCardUid);
+  if (canTarget || canBench) event.preventDefault();
+}
+
+function dropCard(event) {
+  event.preventDefault();
+  const cardUid = event.dataTransfer.getData('text/plain') || arenaState.selectedCardUid;
+  const target = event.target.closest('[data-pokemon-uid]');
+  const action = arenaState.game.legalActions.find(item =>
+    item.cardUid === cardUid && (target ? item.targetUid === target.dataset.pokemonUid : item.type === 'bench')
   );
-  if (matching.length === 1) submitAction(matching[0]);
+  if (action) submitAction(action);
 }
 
 async function toggleFullscreen() {
@@ -241,13 +339,27 @@ async function restoreMatch() {
 }
 
 arenaEl.startMatchForm.addEventListener('submit', startMatch);
-arenaEl.actionList.addEventListener('click', playAction);
 arenaEl.setupActionList.addEventListener('click', playAction);
+arenaEl.contextActions.addEventListener('click', playAction);
+arenaEl.contextCancel.addEventListener('click', clearInteraction);
+arenaEl.endTurnButton.addEventListener('click', playAction);
 arenaEl.newMatchButton.addEventListener('click', newMatch);
 arenaEl.fullscreenButton.addEventListener('click', toggleFullscreen);
 arenaEl.playerHand.addEventListener('click', selectHandCard);
+arenaEl.playerHand.addEventListener('dragstart', beginCardDrag);
+arenaEl.playerHand.addEventListener('keydown', event => {
+  if (event.key === 'Enter' || event.key === ' ') {
+    event.preventDefault();
+    selectHandCard(event);
+  }
+});
 arenaEl.playerActive.addEventListener('click', selectPokemon);
-arenaEl.playerBench.addEventListener('click', selectPokemon);
+arenaEl.playerBench.addEventListener('click', selectBenchZone);
+arenaEl.opponentBench.addEventListener('click', selectPokemon);
+[arenaEl.playerActive, arenaEl.playerBench, arenaEl.opponentBench].forEach(target => {
+  target.addEventListener('dragover', allowCardDrop);
+  target.addEventListener('drop', dropCard);
+});
 document.addEventListener('fullscreenchange', syncFullscreenLabel);
 document.addEventListener('keydown', event => {
   if (event.key.toLowerCase() === 'f' && !['INPUT', 'SELECT', 'TEXTAREA'].includes(document.activeElement?.tagName)) toggleFullscreen();
