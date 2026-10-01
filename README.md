@@ -23,6 +23,8 @@ repeatable and do not depend on controlling the Pokemon TCG Live client.
 
 Architectural decisions and open questions are maintained in
 [`ARCHITECTURE.md`](ARCHITECTURE.md).
+Reusable interface components and visual rules are maintained in
+[`DESIGN.md`](DESIGN.md).
 
 ## Why this does not scrape pokemon.com HTML
 

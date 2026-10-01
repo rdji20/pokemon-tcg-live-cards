@@ -183,17 +183,6 @@ function updateSimulationAvailability() {
   el.simulateButton.disabled = !(el.deckA.value && el.deckB.value);
 }
 
-function featuredCards(cards = []) {
-  const priority = { 'Pokémon': 0, Trainer: 1, Energy: 2 };
-  return [...cards]
-    .filter(card => card.image_small || card.image_large)
-    .sort((left, right) => {
-      const typeDifference = (priority[left.supertype] ?? 3) - (priority[right.supertype] ?? 3);
-      return typeDifference || right.quantity - left.quantity || left.name.localeCompare(right.name);
-    })
-    .slice(0, 5);
-}
-
 function renderArenaDeck(deck, nameTarget, cardsTarget) {
   if (!deck) {
     nameTarget.textContent = 'Choose a deck';
@@ -201,13 +190,7 @@ function renderArenaDeck(deck, nameTarget, cardsTarget) {
     return;
   }
   nameTarget.textContent = deck.name;
-  const cards = featuredCards(deck.cards);
-  cardsTarget.innerHTML = cards.length ? cards.map((card, index) => `
-    <figure class="arena-card" style="--card-index: ${index}">
-      <img src="${escapeHtml(card.image_small || card.image_large)}" alt="${escapeHtml(card.name)} card">
-      <figcaption><strong>${escapeHtml(card.name)}</strong><span>×${card.quantity}</span></figcaption>
-    </figure>
-  `).join('') : '<p>No card images are available for this deck.</p>';
+  cardsTarget.innerHTML = window.TcgComponents.cardLineup(deck.cards);
 }
 
 async function loadDeckDetail(id) {
@@ -244,14 +227,13 @@ async function loadDecks() {
     const previousB = el.deckB.value;
     state.decks = result.items;
     el.deckCount.textContent = `${state.decks.length} saved deck${state.decks.length === 1 ? '' : 's'}`;
-    el.savedDecks.innerHTML = state.decks.length ? state.decks.map(deck => `
-      <article class="saved-deck">
-        <span class="saved-deck-format">${escapeHtml(deck.format)}</span>
-        <strong>${escapeHtml(deck.name)}</strong>
-        <p>${deck.card_count} / 60 cards</p>
-        <div class="saved-deck-actions"><button type="button" data-export="${deck.id}">Load deck</button></div>
-      </article>
-    `).join('') : '<p class="empty-copy">No saved decks.</p>';
+    el.savedDecks.innerHTML = state.decks.length ? '<p class="empty-copy">Opening deck boxes…</p>' : '<p class="empty-copy">No saved decks.</p>';
+    const details = await Promise.all(state.decks.map(deck => loadDeckDetail(deck.id).catch(() => null)));
+    if (state.decks.length) {
+      el.savedDecks.innerHTML = state.decks.map((deck, index) => (
+        window.TcgComponents.deckTile(deck, details[index])
+      )).join('');
+    }
     populateDeckSelect(el.deckA, previousA);
     populateDeckSelect(el.deckB, previousB);
     updateSimulationAvailability();

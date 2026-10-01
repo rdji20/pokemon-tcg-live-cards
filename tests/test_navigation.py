@@ -51,3 +51,8 @@ def test_primary_navigation_is_identical_and_marks_current_page():
         links = navigation(page)
         assert [(link["href"], link["text"]) for link in links] == expected
         assert [link["href"] for link in links if link.get("aria-current") == "page"] == [current]
+
+
+def test_deck_components_load_before_the_page_controller():
+    markup = Path("deck.html").read_text(encoding="utf-8")
+    assert markup.index("components.js") < markup.index("deck.js")

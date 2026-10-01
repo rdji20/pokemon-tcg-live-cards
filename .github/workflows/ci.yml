@@ -17,6 +17,7 @@ jobs:
       - run: python -m compileall -q src tests
       - run: pytest -q
       - run: node --check app.js
+      - run: node --check components.js
       - run: node --check deck.js
       - run: node --check review.js
 
