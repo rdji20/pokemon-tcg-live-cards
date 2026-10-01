@@ -1,0 +1,53 @@
+from html.parser import HTMLParser
+from pathlib import Path
+
+
+class NavigationParser(HTMLParser):
+    def __init__(self) -> None:
+        super().__init__()
+        self.in_navigation = False
+        self.current_link: dict[str, str] | None = None
+        self.links: list[dict[str, str]] = []
+
+    def handle_starttag(self, tag: str, attrs: list[tuple[str, str | None]]) -> None:
+        values = {key: value or "" for key, value in attrs}
+        if tag == "nav" and "primary-nav" in values.get("class", "").split():
+            self.in_navigation = True
+        elif self.in_navigation and tag == "a":
+            self.current_link = values
+            self.current_link["text"] = ""
+
+    def handle_data(self, data: str) -> None:
+        if self.current_link is not None:
+            self.current_link["text"] += data
+
+    def handle_endtag(self, tag: str) -> None:
+        if tag == "a" and self.current_link is not None:
+            self.current_link["text"] = self.current_link["text"].strip()
+            self.links.append(self.current_link)
+            self.current_link = None
+        elif tag == "nav" and self.in_navigation:
+            self.in_navigation = False
+
+
+def navigation(path: str) -> list[dict[str, str]]:
+    parser = NavigationParser()
+    parser.feed(Path(path).read_text(encoding="utf-8"))
+    return parser.links
+
+
+def test_primary_navigation_is_identical_and_marks_current_page():
+    pages = {
+        "index.html": "index.html",
+        "deck.html": "deck.html",
+        "review.html": "review.html",
+    }
+    expected = [
+        ("index.html", "Cards"),
+        ("deck.html", "Deck Lab"),
+        ("review.html", "Rule Review"),
+    ]
+    for page, current in pages.items():
+        links = navigation(page)
+        assert [(link["href"], link["text"]) for link in links] == expected
+        assert [link["href"] for link in links if link.get("aria-current") == "page"] == [current]

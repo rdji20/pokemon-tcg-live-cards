@@ -13,19 +13,24 @@
 </head>
 <body>
   <header class="site-header">
-    <a class="brand" href="#" aria-label="TCG Live Card Vault home">
-      <span class="brand-mark" aria-hidden="true"><i></i></span>
-      <strong>Pokémon TCG Live Cards</strong>
-    </a>
-    <div class="catalog-actions">
-      <a class="header-link" href="deck.html">Deck Lab</a>
-      <a class="header-link" href="review.html">Rule review</a>
-      <span class="header-count" id="headerCount">Loading…</span>
-      <span class="last-sync" id="lastSync">Last sync: —</span>
-      <button class="sync-button" id="syncButton" type="button">
-        <span class="sync-ball" aria-hidden="true"></span>
-        <span id="syncButtonLabel">Sync cards</span>
-      </button>
+    <div class="header-shell">
+      <a class="brand" href="index.html" aria-label="Pokémon TCG Live Cards home">
+        <span class="brand-mark" aria-hidden="true"><i></i></span>
+        <strong>TCG Live</strong>
+      </a>
+      <nav class="primary-nav" aria-label="Primary navigation">
+        <a class="nav-link" href="index.html" aria-current="page">Cards</a>
+        <a class="nav-link" href="deck.html">Deck Lab</a>
+        <a class="nav-link" href="review.html">Rule Review</a>
+      </nav>
+      <div class="header-utilities">
+        <span class="header-count" id="headerCount">Loading…</span>
+        <span class="last-sync" id="lastSync">Last sync: —</span>
+        <button class="sync-button" id="syncButton" type="button">
+          <span class="sync-ball" aria-hidden="true"></span>
+          <span id="syncButtonLabel">Sync cards</span>
+        </button>
+      </div>
     </div>
   </header>
 

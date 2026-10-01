@@ -14,14 +14,19 @@
 </head>
 <body>
   <header class="site-header">
-    <a class="brand" href="index.html" aria-label="Return to card catalog">
-      <span class="brand-mark" aria-hidden="true"><i></i></span>
-      <strong>Deck Lab</strong>
-    </a>
-    <div class="catalog-actions">
-      <a class="header-link" href="index.html">Cards</a>
-      <a class="header-link" href="review.html">Rule review</a>
-      <span class="header-count" id="deckCount">0 saved decks</span>
+    <div class="header-shell">
+      <a class="brand" href="index.html" aria-label="Pokémon TCG Live Cards home">
+        <span class="brand-mark" aria-hidden="true"><i></i></span>
+        <strong>TCG Live</strong>
+      </a>
+      <nav class="primary-nav" aria-label="Primary navigation">
+        <a class="nav-link" href="index.html">Cards</a>
+        <a class="nav-link" href="deck.html" aria-current="page">Deck Lab</a>
+        <a class="nav-link" href="review.html">Rule Review</a>
+      </nav>
+      <div class="header-utilities">
+        <span class="header-count" id="deckCount">0 saved decks</span>
+      </div>
     </div>
   </header>
 
