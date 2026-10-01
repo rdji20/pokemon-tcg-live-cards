@@ -241,6 +241,20 @@ variables and are never committed.
   requires another review. The local password never enters the database or
   repository; hosted review must replace it with proper user authentication.
 
+### ADR-012: Keep rule confidence separate from testing eligibility
+
+- Status: Accepted
+- Date: 2026-09-30
+- Decision: Expose four source-versioned card states: not validated, AI
+  validated, human validated, and fully validated. Show a compact Pokéball
+  check only for the fully validated state. Permit every catalog card in Deck
+  Lab and the experimental arena regardless of its rule-validation state.
+- Reason: Partial coverage must not prevent exploratory deck work, but test
+  results must make the confidence of executable card behavior visible.
+- Consequence: Validation badges are warnings, not deck-legality gates. Trusted
+  rules require both checks. A card-text change produces a new source hash and
+  clears the visible status until that exact text version is reviewed again.
+
 ## Open decisions
 
 - Python HTTP framework and API contract.

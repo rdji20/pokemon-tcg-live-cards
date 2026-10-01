@@ -13,6 +13,7 @@ from psycopg.types.json import Jsonb
 
 from .catalog import CatalogError
 from .effects import PARSER_VERSION, parse_card_effects
+from .rule_engine import source_text_hash
 
 
 DEFAULT_DATABASE_URL = "postgresql://ptcgl:ptcgl_local@localhost:5432/ptcgl"
@@ -181,7 +182,7 @@ def import_catalog(
                     card.get("images", {}).get("small"), card.get("images", {}).get("large"),
                     _rules_text(card), Jsonb(card), True, run_id, live_status,
                     standard_status, expanded_status, live_expanded_status,
-                    Jsonb(evidence), generated_at,
+                    Jsonb(evidence), generated_at, source_text_hash(card),
                 ))
             connection.cursor().executemany(
                 """
@@ -191,10 +192,10 @@ def import_catalog(
                     standard_legal, expanded_legal, image_small, image_large,
                     rules_text, raw_data, active, catalog_run_id, live_status,
                     standard_status, expanded_status, live_expanded_status,
-                    legality_evidence, verified_at
+                    legality_evidence, verified_at, source_text_hash
                 ) VALUES (
                     %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s,
-                    %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s
+                    %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s
                 )
                 ON CONFLICT (id) DO UPDATE SET
                     set_id = EXCLUDED.set_id,
@@ -222,7 +223,8 @@ def import_catalog(
                     expanded_status = EXCLUDED.expanded_status,
                     live_expanded_status = EXCLUDED.live_expanded_status,
                     legality_evidence = EXCLUDED.legality_evidence,
-                    verified_at = EXCLUDED.verified_at
+                    verified_at = EXCLUDED.verified_at,
+                    source_text_hash = EXCLUDED.source_text_hash
                 """,
                 card_rows,
             )
@@ -324,6 +326,20 @@ def _card_payload(row: dict[str, Any]) -> dict[str, Any]:
         "expandedLegal": row["expanded_status"] == "legal",
     })
     card["catalog"] = catalog
+    ai_validated = bool(row.get("ai_validated"))
+    human_validated = bool(row.get("human_validated"))
+    state = (
+        "validated" if ai_validated and human_validated
+        else "ai_validated" if ai_validated
+        else "human_validated" if human_validated
+        else "not_validated"
+    )
+    card["ruleValidation"] = {
+        "state": state,
+        "aiValidated": ai_validated,
+        "humanValidated": human_validated,
+        "testingAllowed": True,
+    }
     return card
 
 
@@ -388,8 +404,18 @@ def search_cards(
             f"""
             SELECT raw_data, live_status, standard_status, expanded_status,
                    live_expanded_status, legality_evidence, verified_at,
+                   coalesce(validation.ai_validated, false) AS ai_validated,
+                   coalesce(validation.human_validated, false) AS human_validated,
                    {rank_sql} AS rank
             FROM cards
+            LEFT JOIN LATERAL (
+                SELECT
+                    bool_or(rv.ai_status = 'passed') AS ai_validated,
+                    bool_or(rv.manual_status = 'approved') AS human_validated
+                FROM card_rule_versions rv
+                WHERE rv.card_id = cards.id
+                  AND rv.source_text_hash = cards.source_text_hash
+            ) validation ON true
             WHERE {where_sql}
             ORDER BY {order_sql}
             LIMIT %s OFFSET %s

@@ -197,10 +197,22 @@ Card text moves through two independent gates:
    executable JSON and approves or rejects it. Every decision is written to an
    append-only audit table.
 
-An AI-passed rule is executable but remains a candidate. Only a manually
-approved version is trusted. The first 10 Standard-legal cards are installed as
-AI-passed and pending manual review. The nightly task never grants human
-approval and never needs an OpenAI API key in this project.
+An AI-passed rule is executable but remains a candidate. Only a version that
+passes both automated validation and manual approval is trusted. The first 10
+Standard-legal cards are installed as AI-passed and pending manual review. The
+nightly task never grants human approval and never needs an OpenAI API key in
+this project.
+
+The card browser shows rule confidence without removing cards from Deck Lab or
+the testing arena:
+
+- `Not checked`: neither automated nor human validation has passed.
+- `AI checked`: automated validation passed; human review is pending.
+- `Human checked`: a reviewer approved it, but automated validation did not pass.
+- Pokéball check: both validations passed; this is the trusted state.
+
+Open `/review.html` to compare the printed text and executable JSON. Approval
+requires `PTCGL_REVIEW_PASSWORD`; every decision remains auditable.
 
 Validate and import candidates created by Codex with:
 

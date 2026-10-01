@@ -83,6 +83,13 @@ select:focus { border-color: var(--accent); box-shadow: 0 0 0 3px rgba(48,52,59,
 .card-tile:hover .card-image { transform: translateY(-3px); box-shadow: 0 10px 25px rgba(32,33,36,.16); }
 .card-image { position: relative; overflow: hidden; aspect-ratio: 245 / 342; border-radius: 9px; background: #e7e9eb; box-shadow: 0 4px 12px rgba(32,33,36,.12); transition: transform .15s ease, box-shadow .15s ease; }
 .card-image img { width: 100%; height: 100%; display: block; object-fit: contain; }
+.rule-validation-badge { position: absolute; z-index: 2; top: 8px; right: 8px; max-width: calc(100% - 16px); padding: 5px 7px; border: 1px solid rgba(32,33,36,.22); border-radius: 5px; color: #30343b; background: rgba(255,255,255,.94); box-shadow: 0 2px 7px rgba(32,33,36,.12); font-size: 10px; font-weight: 500; line-height: 1; }
+.rule-validation-badge.ai_validated { color: #254f78; border-color: #9eb8cf; background: #edf5fb; }
+.rule-validation-badge.human_validated { color: #704b13; border-color: #d2b16f; background: #fff7e7; }
+.rule-validation-badge.validated { width: 28px; height: 28px; padding: 0; display: grid; place-items: center; border: 0; border-radius: 50%; background: transparent; box-shadow: 0 2px 7px rgba(32,33,36,.18); }
+.pokeball-check { width: 28px; height: 28px; position: relative; display: block; overflow: hidden; border: 2px solid #202124; border-radius: 50%; background: linear-gradient(to bottom, #df3b35 0 45%, #202124 45% 55%, #fff 55% 100%); }
+.pokeball-check::before { content: ""; position: absolute; z-index: 1; width: 13px; height: 13px; top: 50%; left: 50%; border: 2px solid #202124; border-radius: 50%; background: #fff; transform: translate(-50%, -50%); }
+.pokeball-check::after { content: "✓"; position: absolute; z-index: 2; top: 50%; left: 50%; color: #202124; font-size: 9px; font-weight: 700; transform: translate(-50%, -54%); }
 .card-badges { position: absolute; left: 8px; right: 8px; bottom: 8px; display: flex; justify-content: space-between; align-items: end; pointer-events: none; }
 .badge { padding: 4px 7px; border-radius: 4px; color: white; background: rgba(32,33,36,.9); font-size: 10px; font-weight: 500; }
 .badge.standard { color: var(--text); background: var(--standard); }
@@ -129,6 +136,11 @@ dialog::backdrop { background: rgba(20,22,24,.70); }
 .dialog-subtitle { margin: 0 0 22px; color: var(--muted); }
 .dialog-tags { display: flex; flex-wrap: wrap; gap: 7px; margin-bottom: 26px; }
 .dialog-tags span { padding: 6px 9px; border: 1px solid var(--border); border-radius: 5px; font-size: 11px; }
+.validation-summary { margin: 0 0 22px; padding: 12px; display: flex; align-items: center; gap: 12px; border: 1px solid var(--border); border-radius: 7px; background: var(--background); }
+.validation-summary .rule-validation-badge { position: static; flex: 0 0 auto; }
+.validation-summary > div { min-width: 0; }
+.validation-summary strong { font-size: 13px; font-weight: 500; }
+.validation-summary p { margin: 3px 0 0; color: var(--muted); font-size: 11px; line-height: 1.4; }
 .detail-section { padding: 20px 0; border-top: 1px solid var(--border); }
 .detail-section h4 { margin: 0 0 12px; font-size: 13px; font-weight: 500; }
 .move { margin-top: 14px; }

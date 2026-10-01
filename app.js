@@ -52,6 +52,23 @@ function escapeHtml(value = '') {
   })[character]);
 }
 
+const validationLabels = {
+  not_validated: { label: 'Not checked', detail: 'Not validated yet. Available for deck testing.' },
+  ai_validated: { label: 'AI checked', detail: 'Automated checks passed. Human review is still pending.' },
+  human_validated: { label: 'Human checked', detail: 'Human reviewed. Automated checks have not passed.' },
+  validated: { label: 'Validated', detail: 'Automated checks and human review both passed.' },
+};
+
+function validationMarkup(validation = {}, compact = true) {
+  const state = validation.state || 'not_validated';
+  const copy = validationLabels[state] || validationLabels.not_validated;
+  if (state === 'validated') {
+    return `<span class="rule-validation-badge validated" title="${copy.detail}"><span class="pokeball-check" aria-hidden="true"></span><span class="sr-only">${copy.label}</span></span>`;
+  }
+  const text = compact ? copy.label : `${copy.label}. ${copy.detail}`;
+  return `<span class="rule-validation-badge ${escapeHtml(state)}" title="${copy.detail}">${escapeHtml(text)}</span>`;
+}
+
 function normalizedDate(value = '') {
   return value.replaceAll('/', '-');
 }
@@ -167,6 +184,7 @@ function render() {
     <article class="card-tile" tabindex="0" role="button" data-card-id="${escapeHtml(card.id)}" aria-label="Open ${escapeHtml(card.name)} details" style="animation-delay:${Math.min(index * 10, 180)}ms">
       <div class="card-image">
         <img src="${escapeHtml(card.images?.small)}" alt="${escapeHtml(card.name)} card" loading="lazy">
+        ${validationMarkup(card.ruleValidation)}
         <div class="card-badges">
           <span class="badge">Live</span>
           ${card.catalog.standardLegal ? '<span class="badge standard">Standard</span>' : ''}
@@ -219,6 +237,7 @@ function openCard(card) {
         <h3 id="dialogTitle">${escapeHtml(card.name)}</h3>
         <p class="dialog-subtitle">${escapeHtml(card.set.name)} · ${escapeHtml(collectorNumber(card))}</p>
         <div class="dialog-tags">${tags.map(tag => `<span>${escapeHtml(tag)}</span>`).join('')}</div>
+        <div class="validation-summary">${validationMarkup(card.ruleValidation)}<div><strong>${escapeHtml(validationLabels[card.ruleValidation?.state || 'not_validated'].label)}</strong><p>${escapeHtml(validationLabels[card.ruleValidation?.state || 'not_validated'].detail)}</p></div></div>
         ${abilities || attacks ? `<section class="detail-section"><h4>Card text</h4>${abilities}${attacks}</section>` : ''}
         <section class="detail-section detail-grid">
           <div><span>Rarity</span><strong>${escapeHtml(card.rarity || '—')}</strong></div>

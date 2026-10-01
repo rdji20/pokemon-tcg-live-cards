@@ -83,14 +83,19 @@ def review_coverage(url: str | None = None) -> dict[str, Any]:
                 ) AS ai_passed,
                 count(DISTINCT rv.card_id) FILTER (
                     WHERE c.active AND c.standard_status = 'legal'
+                      AND rv.manual_status = 'approved'
+                ) AS human_approved,
+                count(DISTINCT rv.card_id) FILTER (
+                    WHERE c.active AND c.standard_status = 'legal'
                       AND rv.ai_status = 'passed' AND rv.manual_status = 'approved'
-                ) AS manually_approved,
+                ) AS fully_validated,
                 count(DISTINCT rv.id) FILTER (
-                    WHERE rv.ai_status = 'passed' AND rv.manual_status = 'pending'
+                    WHERE rv.manual_status = 'pending'
                 ) AS pending_reviews,
                 count(DISTINCT rv.id) FILTER (WHERE rv.manual_status = 'rejected') AS rejected_versions
             FROM cards c
-            LEFT JOIN card_rule_versions rv ON rv.card_id = c.id
+            LEFT JOIN card_rule_versions rv
+              ON rv.card_id = c.id AND rv.source_text_hash = c.source_text_hash
             """
         ).fetchone()
     return {key: int(value or 0) for key, value in dict(row).items()}
@@ -120,7 +125,7 @@ def list_rule_reviews(
                    c.standard_status, c.raw_data
             FROM card_rule_versions rv
             JOIN cards c ON c.id = rv.card_id
-            WHERE rv.ai_status = 'passed' {where}
+            WHERE rv.source_text_hash = c.source_text_hash {where}
             ORDER BY rv.created_at, rv.card_id
             LIMIT %s
             """,
@@ -158,7 +163,7 @@ def decide_rule_review(
                 UPDATE card_rule_versions
                 SET manual_status = %s, reviewer = %s, review_note = %s,
                     reviewed_at = now(), updated_at = now()
-                WHERE id = %s AND ai_status = 'passed'
+                WHERE id = %s
                 RETURNING id, card_id, manual_status, reviewer, review_note, reviewed_at
                 """,
                 (decision, reviewer, note, review_id),

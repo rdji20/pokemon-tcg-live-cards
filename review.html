@@ -28,11 +28,12 @@
   <main class="review-main">
     <section class="review-intro">
       <h1>Card rule approval</h1>
-      <p>AI drafts become trusted simulator rules only after a password-protected human review.</p>
+      <p>Compare each executable rule with the printed card, then approve or reject it. Approval requires the local review password.</p>
       <div class="coverage-grid" aria-label="Rule coverage">
         <div><strong id="standardCount">—</strong><span>Standard cards</span></div>
-        <div><strong id="aiCount">—</strong><span>AI passed</span></div>
-        <div><strong id="approvedCount">—</strong><span>Human approved</span></div>
+        <div><strong id="aiCount">—</strong><span>AI checked</span></div>
+        <div><strong id="humanCount">—</strong><span>Human checked</span></div>
+        <div><strong id="validatedCount">—</strong><span>Fully validated</span></div>
         <div><strong id="pendingCount">—</strong><span>Pending review</span></div>
       </div>
     </section>
@@ -57,7 +58,7 @@
     </section>
   </main>
 
-  <footer><span>Pokémon TCG Live Cards</span><p>AI draft + human approval</p></footer>
+  <footer><span>Pokémon TCG Live Cards</span><p>Rule validation</p></footer>
   <script src="review.js" defer></script>
 </body>
 </html>
