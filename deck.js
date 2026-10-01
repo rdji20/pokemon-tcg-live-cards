@@ -75,7 +75,7 @@ function updateDeckShape() {
   else el.deckShapeNote.textContent = `${total - 60} card${total - 60 === 1 ? '' : 's'} over the limit.`;
 }
 
-function startBlankDeck() {
+function startBlankDeck({ focus = true } = {}) {
   state.generatedCards = null;
   state.generatedComposition = null;
   el.deckFormat.value = 'standard';
@@ -86,9 +86,11 @@ function startBlankDeck() {
   el.optimizerResult.className = 'result-box';
   el.optimizerResult.textContent = 'Quick Build is optional.';
   updateDeckShape();
-  el.deckName.focus();
-  el.deckName.select();
-  document.getElementById('builderTitle').scrollIntoView({ behavior: 'smooth', block: 'start' });
+  if (focus) {
+    el.deckName.focus();
+    el.deckName.select();
+    document.getElementById('builderTitle').scrollIntoView({ behavior: 'smooth', block: 'start' });
+  }
 }
 
 function showValidation(result) {
@@ -295,5 +297,5 @@ el.savedDecks.addEventListener('click', event => {
   if (button) exportDeck(button.dataset.export);
 });
 
-updateDeckShape();
+startBlankDeck({ focus: false });
 loadDecks();
