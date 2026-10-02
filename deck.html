@@ -3,16 +3,16 @@
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
-  <meta name="description" content="Build, validate, and simulate Pokemon TCG Live decks.">
+  <meta name="description" content="Build and validate a Pokémon TCG Live deck from the complete Standard card catalog.">
   <title>Deck Lab · Pokémon TCG Live Cards</title>
   <link rel="icon" href="favicon.svg" type="image/svg+xml">
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=Roboto:wght@400;500;700&display=swap" rel="stylesheet">
   <link rel="stylesheet" href="styles.css">
-  <link rel="stylesheet" href="deck.css?v=5">
+  <link rel="stylesheet" href="deck.css?v=6">
 </head>
-<body>
+<body class="deck-builder-page">
   <header class="site-header">
     <div class="header-shell">
       <a class="brand" href="index.html" aria-label="Pokémon TCG Live Cards home">
@@ -32,124 +32,132 @@
   </header>
 
   <main class="deck-main">
-    <section class="deck-intro">
-      <div>
-        <span class="section-kicker">Deck Lab</span>
-        <h1>Build around a game plan.</h1>
-        <p>A Pokémon deck is exactly 60 cards. Shape the Pokémon, Trainer, and Energy mix, save the list, then send it into the arena.</p>
+    <section class="builder-toolbar" aria-label="Card library controls">
+      <div class="library-heading">
+        <div>
+          <p>Card Library</p>
+          <h1>Build your deck</h1>
+        </div>
+        <div class="format-lock" title="The builder starts with cards currently legal in Standard">
+          <span class="mini-ball" aria-hidden="true"></span>
+          <span>Standard</span>
+        </div>
       </div>
-      <div class="deck-rule-strip" aria-label="Core deck rules">
-        <span><strong>60</strong> cards</span>
-        <span><strong>4</strong> max, except Basic Energy</span>
-        <span><strong>1+</strong> Basic Pokémon</span>
+
+      <div class="search-row">
+        <label class="library-search" for="cardSearch">
+          <svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="11" cy="11" r="7"></circle><path d="m16 16 5 5"></path></svg>
+          <input id="cardSearch" type="search" autocomplete="off" placeholder="Search by card name or text">
+          <kbd>/</kbd>
+        </label>
+        <label class="control-field">
+          <span>Set</span>
+          <select id="setFilter"><option value="">All Standard sets</option></select>
+        </label>
+        <label class="control-field">
+          <span>Sort</span>
+          <select id="sortFilter">
+            <option value="evolution">Evolution and name</option>
+            <option value="name">Name</option>
+            <option value="newest">Newest first</option>
+            <option value="set">Set and number</option>
+          </select>
+        </label>
+      </div>
+
+      <div class="card-type-tabs" id="cardTypeTabs" role="tablist" aria-label="Card type">
+        <button type="button" role="tab" aria-selected="true" data-supertype="">All cards</button>
+        <button type="button" role="tab" aria-selected="false" data-supertype="Pokémon">Pokémon</button>
+        <button type="button" role="tab" aria-selected="false" data-supertype="Trainer">Trainers</button>
+        <button type="button" role="tab" aria-selected="false" data-supertype="Energy">Energy</button>
       </div>
     </section>
 
-    <section class="workbench" aria-labelledby="builderTitle">
-      <div class="deck-box-panel">
-        <div class="deck-box-heading">
-          <div>
-            <span class="section-kicker">Current deck</span>
-            <h2 id="builderTitle">Deck box</h2>
+    <section class="deck-studio" aria-label="Deck builder">
+      <section class="card-library" aria-labelledby="libraryTitle">
+        <div class="library-status">
+          <h2 id="libraryTitle">Standard cards</h2>
+          <p id="libraryResultCount" aria-live="polite">Loading cards…</p>
+        </div>
+        <div class="builder-card-grid" id="cardLibrary" aria-live="polite"></div>
+        <button class="load-more-button" id="loadMoreCards" type="button" hidden>Load more cards</button>
+      </section>
+
+      <aside class="active-deck" aria-labelledby="activeDeckTitle">
+        <div class="active-deck-head">
+          <div class="deck-name-row">
+            <label class="sr-only" for="deckName">Deck name</label>
+            <input id="deckName" value="Untitled deck" autocomplete="off" aria-label="Deck name">
+            <button class="new-deck-button" id="newDeckButton" type="button">Start over</button>
           </div>
-          <div class="deck-heading-tools">
-            <button class="new-deck-button" id="newDeckButton" type="button"><span class="mini-ball" aria-hidden="true"></span>Start blank deck</button>
-            <label class="format-control"><span>Format</span><select id="deckFormat" aria-label="Deck format">
-                <option value="standard" selected>Standard</option>
-                <option value="live-expanded">Live Expanded</option>
-                <option value="unlimited">Unlimited</option>
-              </select></label>
+          <h2 class="sr-only" id="activeDeckTitle">Current deck</h2>
+          <div class="deck-total-line">
+            <div>
+              <strong id="totalCount">0</strong><span>/ 60 cards</span>
+            </div>
+            <span class="deck-readiness" id="deckReadiness">Building</span>
+          </div>
+          <div class="deck-progress" aria-hidden="true"><i id="deckProgress"></i></div>
+          <input id="deckFormat" type="hidden" value="standard">
+        </div>
+
+        <div class="composition-tabs" aria-label="Deck composition">
+          <button type="button" class="active" data-deck-type=""><span>All</span><strong id="allCount">0</strong></button>
+          <button type="button" data-deck-type="Pokémon"><span>Pokémon</span><strong id="pokemonCount">0</strong></button>
+          <button type="button" data-deck-type="Trainer"><span>Trainers</span><strong id="trainerCount">0</strong></button>
+          <button type="button" data-deck-type="Energy"><span>Energy</span><strong id="energyCount">0</strong></button>
+        </div>
+
+        <div class="deck-card-list" id="deckCardList">
+          <div class="empty-deck">
+            <span class="empty-deck-ball" aria-hidden="true"><i></i></span>
+            <strong>Your deck starts empty</strong>
+            <p>Choose cards from the library. You can change quantities here at any time.</p>
           </div>
         </div>
 
-        <div class="deck-shape">
-          <div class="deck-meter" id="deckMeter" style="--deck-progress: 0">
-            <div class="deck-meter-inner"><strong id="totalCount">0</strong><span>/ 60</span></div>
+        <div class="deck-feedback" id="validationResult" aria-live="polite">Add cards to begin.</div>
+        <div class="active-deck-actions">
+          <button class="check-deck-button" id="validateButton" type="button">Check deck</button>
+          <button class="save-deck-button" id="saveButton" type="button">Save deck</button>
+        </div>
+
+        <details class="deck-tools">
+          <summary>Import, export, and quick build</summary>
+          <div class="deck-tools-body">
+            <label for="decklist">Paste a Pokémon TCG Live deck list</label>
+            <textarea id="decklist" spellcheck="false" placeholder="4 Charmander OBF 26"></textarea>
+            <button class="tool-button" id="importButton" type="button">Import list into builder</button>
+            <div class="tool-divider"></div>
+            <label for="energyType">Quick build starting type</label>
+            <div class="quick-build-controls">
+              <select id="energyType">
+                <option value="">Any type</option>
+                <option>Colorless</option><option>Darkness</option><option>Dragon</option>
+                <option>Fighting</option><option>Fire</option><option>Grass</option>
+                <option>Lightning</option><option>Metal</option><option>Psychic</option>
+                <option>Water</option>
+              </select>
+              <input id="optimizerSeed" type="number" value="1" min="0" aria-label="Quick build variation seed">
+              <button class="tool-button" id="optimizeButton" type="button">Create draft</button>
+            </div>
+            <p id="optimizerResult" class="tool-message" aria-live="polite"></p>
           </div>
-          <div class="composition" aria-label="Deck composition">
-            <div class="composition-item pokemon-count"><span class="composition-symbol" aria-hidden="true"></span><div><strong id="pokemonCount">0</strong><span>Pokémon</span></div></div>
-            <div class="composition-item trainer-count"><span class="composition-symbol" aria-hidden="true"></span><div><strong id="trainerCount">0</strong><span>Trainer</span></div></div>
-            <div class="composition-item energy-count"><span class="composition-symbol" aria-hidden="true"></span><div><strong id="energyCount">0</strong><span>Energy</span></div></div>
-          </div>
-          <p class="deck-shape-note" id="deckShapeNote">Paste a deck list to fill the box.</p>
-        </div>
-
-        <div class="deck-fields">
-          <label class="field-label" for="deckName">Deck name</label>
-          <input class="text-input deck-name-input" id="deckName" value="Untitled deck" autocomplete="off">
-          <div class="list-heading"><label class="field-label" for="decklist">Pokémon TCG Live deck list</label><span>Paste or edit directly</span></div>
-          <textarea id="decklist" spellcheck="false" placeholder="Pokémon: 16&#10;4 Charmander OBF 26&#10;&#10;Trainer: 32&#10;4 Professor's Research SVI 189&#10;&#10;Energy: 12&#10;12 Basic Fire Energy SVE 2"></textarea>
-        </div>
-
-        <div class="deck-actions">
-          <button class="primary-button" id="validateButton" type="button">Check deck</button>
-          <button class="secondary-button" id="saveButton" type="button">Save to shelf</button>
-        </div>
-        <div class="result-box" id="validationResult" aria-live="polite">No deck checked yet.</div>
-      </div>
-
-      <aside class="quick-build" aria-labelledby="optimizerTitle">
-        <div class="quick-build-mark" aria-hidden="true"><i></i></div>
-        <span class="section-kicker">Starting point</span>
-        <h2 id="optimizerTitle">Quick build</h2>
-        <p>Choose a Pokémon type and generate a legal 60-card shell. It is a draft to tune, not an answer.</p>
-        <label class="field-label" for="energyType">Primary type</label>
-        <select id="energyType">
-          <option value="">Any type</option>
-          <option>Colorless</option><option>Darkness</option><option>Dragon</option>
-          <option>Fighting</option><option>Fire</option><option>Grass</option>
-          <option>Lightning</option><option>Metal</option><option>Psychic</option>
-          <option>Water</option>
-        </select>
-        <label class="field-label" for="optimizerSeed">Variation seed</label>
-        <input class="text-input" id="optimizerSeed" type="number" value="1" min="0">
-        <button class="quick-build-button" id="optimizeButton" type="button"><span class="mini-ball" aria-hidden="true"></span>Build starting list</button>
-        <div class="result-box" id="optimizerResult" aria-live="polite">Ready when you are.</div>
+        </details>
       </aside>
     </section>
 
     <section class="deck-shelf-section" aria-labelledby="savedTitle">
       <div class="section-title-row">
-        <div><span class="section-kicker">Collection</span><h2 id="savedTitle">Deck shelf</h2></div>
-        <button class="secondary-button compact-button" id="refreshDecksButton" type="button">Refresh shelf</button>
+        <div><p>Saved decks</p><h2 id="savedTitle">Continue building</h2></div>
+        <button class="secondary-button compact-button" id="refreshDecksButton" type="button">Refresh</button>
       </div>
       <div id="savedDecks" class="saved-decks"><p class="empty-copy">No saved decks yet.</p></div>
     </section>
-
-    <section class="arena" aria-labelledby="simulationTitle">
-      <div class="arena-heading">
-        <div><span class="section-kicker">Matchup testing</span><h2 id="simulationTitle">Test arena</h2></div>
-        <span class="model-label">prototype-0.1.0</span>
-      </div>
-      <div class="matchup">
-        <div class="arena-deck side-a">
-          <div class="arena-deck-heading"><span>Deck A</span><strong id="deckAName">Choose a deck</strong></div>
-          <div class="card-lineup" id="deckACards" aria-live="polite"><p>Save a deck to reveal its cards.</p></div>
-        </div>
-        <div class="versus-mark" aria-hidden="true"><span>VS</span></div>
-        <div class="arena-deck side-b">
-          <div class="arena-deck-heading"><span>Deck B</span><strong id="deckBName">Choose a deck</strong></div>
-          <div class="card-lineup" id="deckBCards" aria-live="polite"><p>Save a deck to reveal its cards.</p></div>
-        </div>
-      </div>
-      <div class="matchup-settings">
-        <label><span>Deck A</span><select id="deckA" aria-label="Deck A"></select></label>
-        <label><span>Strategy A</span><select id="policyA"><option value="greedy">Greedy damage</option><option value="durable">Durable</option><option value="random">Random</option></select></label>
-        <label><span>Deck B</span><select id="deckB" aria-label="Deck B"></select></label>
-        <label><span>Strategy B</span><select id="policyB"><option value="greedy">Greedy damage</option><option value="durable">Durable</option><option value="random">Random</option></select></label>
-      </div>
-      <div class="arena-controls">
-        <label><span>Games</span><input class="text-input" id="games" type="number" value="100" min="1" max="1000"></label>
-        <label><span>Seed</span><input class="text-input" id="simulationSeed" type="number" value="1" min="0"></label>
-        <button class="arena-button" id="simulateButton" type="button">Run matchup</button>
-      </div>
-      <div class="result-box arena-result" id="simulationResult" aria-live="polite">Save a deck to the shelf to begin testing.</div>
-      <details class="model-coverage"><summary>What the current simulator understands</summary><p>Seeded setup, draws, Basic Pokémon promotion, parsed draw effects, printed base damage, knockouts, prizes, and deck-out. Energy costs, evolution, Weakness, Resistance, Retreat, Bench timing, and many card-specific effects are not implemented yet.</p></details>
-    </section>
   </main>
 
-  <footer><span>Pokémon TCG Live Cards</span><p>Build · save · test</p></footer>
+  <footer><span>Pokémon TCG Live Cards</span><p>Build · validate · play</p></footer>
   <script src="components.js?v=1" defer></script>
-  <script src="deck.js?v=7" defer></script>
+  <script src="deck.js?v=8" defer></script>
 </body>
 </html>

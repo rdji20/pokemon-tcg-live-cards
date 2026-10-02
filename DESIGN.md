@@ -58,18 +58,37 @@ The Card Lineup displays up to five real cards for matchup comparison. It is
 used by both sides of Test Arena. Each card shows its name and deck quantity.
 Cards may lift slightly on hover, but must remain readable without interaction.
 
-### Deck box
+### Card Library
 
-The Deck Box is the active 60-card workspace. It owns the format, deck name,
-deck-list editor, composition counters, validation action, and save action.
-Starting blank is the default. Quick Build is optional and must never silently
-replace the current draft.
+The Card Library is the primary left side of Deck Lab. It browses the complete
+server-side catalog through search, set, card-type, and sort controls. The
+default filter is Standard legality. Results load progressively for speed, but
+every search and filter is evaluated against the full catalog.
+
+Each Library Card uses the real card image as the dominant control. Its bottom
+control says `Add to deck` or becomes an inline minus, quantity, and plus
+control after the card is chosen. Do not place floating quantity circles,
+validation labels, or decorative UI on top of the card art. The copy limit is
+calculated across every print with the same card name; Basic Energy is exempt.
+
+### Active Deck
+
+The Active Deck is a persistent right-side tray beside the Card Library. It
+owns the editable deck name, 60-card progress, Pokémon-Trainer-Energy counts,
+compact card rows, validation, and save actions. It starts empty every time the
+page loads. On narrow screens it moves above the library rather than becoming
+a hidden drawer.
+
+Card rows always include real art, print identity, quantity, and direct plus
+and minus controls. Composition tabs filter the tray without changing the
+deck. Import, export, and Quick Build remain secondary inside a collapsed tool
+section so manual card selection stays the main workflow.
 
 ### Quick Build
 
-Quick Build is a secondary blue tool beside the Deck Box. Its yellow action
-and small Pokéball distinguish generation from manual construction. Generated
-lists remain drafts until validation succeeds.
+Quick Build is a secondary tool inside the Active Deck. Generated lists remain
+drafts until validation succeeds and must never silently replace the current
+draft.
 
 ### Test Arena
 

@@ -37,7 +37,8 @@ def optimize_deck(payload: dict[str, Any], url: str | None = None) -> dict[str, 
         rows = connection.execute(
             f"""
             SELECT c.id, c.name, c.supertype, c.subtypes, c.types, c.hp,
-                   c.rules_text, ce.effects
+                   c.rules_text, c.image_small, c.image_large, c.set_id,
+                   c.number, ce.effects
             FROM cards c LEFT JOIN card_effects ce ON ce.card_id = c.id
             WHERE c.active AND c.{status_column} = 'legal'
               AND (%s = '' OR c.supertype <> 'Pokémon' OR %s = ANY(c.types))
@@ -59,7 +60,14 @@ def optimize_deck(payload: dict[str, Any], url: str | None = None) -> dict[str, 
             for row in pool:
                 if row["name"] in used_names:
                     continue
-                chosen.append({"card_id": row["id"], "quantity": quantity, "name": row["name"], "supertype": row["supertype"], "score": round(_score(row), 2)})
+                chosen.append({
+                    "card_id": row["id"], "quantity": quantity,
+                    "name": row["name"], "supertype": row["supertype"],
+                    "subtypes": row["subtypes"] or [],
+                    "image_small": row["image_small"], "image_large": row["image_large"],
+                    "set_id": row["set_id"], "number": row["number"],
+                    "score": round(_score(row), 2),
+                })
                 used_names.add(row["name"])
                 if len([item for item in chosen if item["quantity"] == quantity]) >= count:
                     break
@@ -73,13 +81,27 @@ def optimize_deck(payload: dict[str, Any], url: str | None = None) -> dict[str, 
             if row["name"] in used_names:
                 continue
             quantity = min(4, trainer_target)
-            chosen.append({"card_id": row["id"], "quantity": quantity, "name": row["name"], "supertype": row["supertype"], "score": round(_score(row), 2)})
+            chosen.append({
+                "card_id": row["id"], "quantity": quantity,
+                "name": row["name"], "supertype": row["supertype"],
+                "subtypes": row["subtypes"] or [],
+                "image_small": row["image_small"], "image_large": row["image_large"],
+                "set_id": row["set_id"], "number": row["number"],
+                "score": round(_score(row), 2),
+            })
             used_names.add(row["name"])
             trainer_target -= quantity
         remaining = 60 - sum(item["quantity"] for item in chosen)
         if energies and remaining > 0:
             energy = energies[0]
-            chosen.append({"card_id": energy["id"], "quantity": remaining, "name": energy["name"], "supertype": energy["supertype"], "score": 0})
+            chosen.append({
+                "card_id": energy["id"], "quantity": remaining,
+                "name": energy["name"], "supertype": energy["supertype"],
+                "subtypes": energy["subtypes"] or [],
+                "image_small": energy["image_small"], "image_large": energy["image_large"],
+                "set_id": energy["set_id"], "number": energy["number"],
+                "score": 0,
+            })
         total = sum(item["quantity"] for item in chosen)
         result = {
             "algorithmVersion": ALGORITHM_VERSION,

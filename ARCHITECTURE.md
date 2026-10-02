@@ -341,6 +341,25 @@ variables and are never committed.
   Explicit board targets are player choices; other compiled choices currently
   use the deterministic Arena policy until the generic choice protocol lands.
 
+### ADR-017: Build decks against the server-side catalog
+
+- Status: Accepted
+- Date: 2026-10-02
+- Decision: Deck Lab starts with an empty Standard deck and keeps the active
+  60-card list beside a progressively loaded card library. Search, fuzzy text
+  matching, legality, set and card-type filters, and ordering execute in
+  PostgreSQL through `/api/cards`; the browser never downloads the complete
+  catalog. Deck validation returns resolved card metadata so pasted lists and
+  generated drafts enter the same visual builder as manually selected cards.
+- Reason: A player choosing what to buy needs to browse every currently legal
+  print while continuously seeing the deck being assembled. Loading thousands
+  of cards into browser memory would be slow and duplicate the search system.
+- Consequence: Standard is the default and library pagination is an internal
+  performance detail, not a limit on available cards. The server remains
+  authoritative for 60-card, same-name copy, Basic Pokémon, TCG Live, and
+  format-legality validation. Quick Build and text import are secondary paths
+  into the same draft state.
+
 ## Open decisions
 
 - Python HTTP framework and API contract.

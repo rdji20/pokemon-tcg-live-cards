@@ -12,7 +12,7 @@ from .database import database_url
 
 
 DECK_SIZE = 60
-DECK_LINE = re.compile(r"^(\d+)\s+(.+?)\s+([A-Za-z0-9]+)\s+([A-Za-z0-9-]+)$")
+DECK_LINE = re.compile(r"^(\d+)\s+(.+?)\s+([A-Za-z0-9-]+)\s+([A-Za-z0-9-]+)$")
 SECTION_HEADER = re.compile(r"^(pok[eé]mon|trainer|energy)(?:\s*:\s*\d+)?$", re.IGNORECASE)
 FORMATS = {"standard", "live-expanded", "unlimited"}
 
@@ -99,7 +99,8 @@ def validate_deck(
     rows = connection.execute(
         """
         SELECT id, name, supertype, subtypes, standard_status,
-               live_expanded_status, live_status
+               live_expanded_status, live_status, image_small, image_large,
+               set_id, number
         FROM cards WHERE active AND id = ANY(%s)
         """,
         (ids,),
@@ -115,7 +116,7 @@ def validate_deck(
         row = cards.get(item["card_id"])
         if row is None:
             continue
-        _, name, supertype, subtypes, standard_status, live_expanded_status, live_status = row
+        _, name, supertype, subtypes, standard_status, live_expanded_status, live_status, _, _, _, _ = row
         is_basic_energy = supertype == "Energy" and "Basic" in (subtypes or [])
         if not is_basic_energy:
             copies_by_name[name] += item["quantity"]
@@ -132,6 +133,21 @@ def validate_deck(
             errors.append({"code": "copy_limit", "message": f"{name} has {quantity} copies; maximum is 4"})
     if not has_basic_pokemon:
         errors.append({"code": "no_basic_pokemon", "message": "Deck needs at least one Basic Pokémon"})
+    resolved_cards = []
+    for item in normalized:
+        row = cards.get(item["card_id"])
+        if row is None:
+            continue
+        resolved_cards.append({
+            **item,
+            "name": row[1],
+            "supertype": row[2],
+            "subtypes": row[3] or [],
+            "image_small": row[7],
+            "image_large": row[8],
+            "set_id": row[9],
+            "number": row[10],
+        })
     return {
         "valid": not errors,
         "format": format_name,
@@ -139,7 +155,7 @@ def validate_deck(
         "uniquePrints": len(normalized),
         "errors": errors,
         "warnings": warnings,
-        "cards": normalized,
+        "cards": resolved_cards,
     }
 
 
@@ -186,7 +202,8 @@ def get_deck(deck_id: str, url: str | None = None) -> dict[str, Any] | None:
         rows = connection.execute(
             """
             SELECT dc.card_id, dc.quantity, c.name, c.set_id, c.number,
-                   c.supertype, c.image_small, c.image_large, c.raw_data
+                   c.supertype, c.subtypes, c.image_small, c.image_large,
+                   c.raw_data
             FROM deck_cards dc
             JOIN cards c ON c.id = dc.card_id
             WHERE dc.deck_id = %s

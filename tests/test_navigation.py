@@ -60,6 +60,17 @@ def test_deck_components_load_before_the_page_controller():
     assert markup.index("components.js") < markup.index("deck.js")
 
 
+def test_deck_lab_is_a_catalog_backed_builder():
+    markup = Path("deck.html").read_text(encoding="utf-8")
+    assert 'id="cardLibrary"' in markup
+    assert 'id="deckCardList"' in markup
+    assert 'id="cardSearch"' in markup
+    assert 'id="setFilter"' in markup
+    assert 'id="deckFormat" type="hidden" value="standard"' in markup
+    assert 'id="importButton"' in markup
+    assert "Test arena" not in markup
+
+
 def test_arena_has_game_field_and_fullscreen_control():
     markup = Path("arena.html").read_text(encoding="utf-8")
     assert 'id="gameTable"' in markup

@@ -1,14 +1,26 @@
-const state = { decks: [], deckDetails: new Map(), generatedCards: null, generatedComposition: null };
+const state = {
+  decks: [],
+  deckDetails: new Map(),
+  draft: new Map(),
+  library: [],
+  libraryPage: 1,
+  libraryPages: 1,
+  libraryTotal: 0,
+  libraryLoading: false,
+  libraryRequest: 0,
+  supertype: '',
+  deckType: '',
+};
 
-const el = Object.fromEntries([
+const ids = [
   'deckCount', 'deckFormat', 'deckName', 'decklist', 'validateButton', 'saveButton',
-  'newDeckButton',
-  'validationResult', 'energyType', 'optimizerSeed', 'optimizeButton', 'optimizerResult',
-  'refreshDecksButton', 'savedDecks', 'deckA', 'deckB', 'games', 'simulationSeed',
-  'policyA', 'policyB', 'simulateButton', 'simulationResult', 'deckMeter',
-  'totalCount', 'pokemonCount', 'trainerCount', 'energyCount', 'deckShapeNote',
-  'deckAName', 'deckBName', 'deckACards', 'deckBCards'
-].map(id => [id, document.getElementById(id)]));
+  'newDeckButton', 'validationResult', 'energyType', 'optimizerSeed', 'optimizeButton',
+  'optimizerResult', 'refreshDecksButton', 'savedDecks', 'cardSearch', 'setFilter',
+  'sortFilter', 'cardTypeTabs', 'cardLibrary', 'libraryResultCount', 'loadMoreCards',
+  'deckCardList', 'totalCount', 'allCount', 'pokemonCount', 'trainerCount',
+  'energyCount', 'deckReadiness', 'deckProgress', 'importButton',
+];
+const el = Object.fromEntries(ids.map(id => [id, document.getElementById(id)]));
 
 function escapeHtml(value = '') {
   return String(value).replace(/[&<>'"]/g, character => ({
@@ -30,76 +42,266 @@ async function api(path, options = {}) {
   return payload;
 }
 
+function draftCard(card, quantity = 1) {
+  return {
+    card_id: card.card_id || card.id,
+    quantity: Number(quantity || card.quantity || 1),
+    name: card.name || 'Unknown card',
+    supertype: card.supertype || '',
+    subtypes: card.subtypes || [],
+    image_small: card.image_small || card.images?.small || card.image_large || card.images?.large || '',
+    image_large: card.image_large || card.images?.large || card.image_small || card.images?.small || '',
+    set_id: card.set_id || card.set?.id || '',
+    set_name: card.set_name || card.set?.name || card.set_id || card.set?.id || '',
+    number: card.number || '',
+  };
+}
+
+function draftEntries() {
+  return [...state.draft.values()].map(card => ({ card_id: card.card_id, quantity: card.quantity }));
+}
+
 function draftPayload() {
-  const payload = { name: el.deckName.value.trim() || 'Untitled deck', format: el.deckFormat.value };
-  if (state.generatedCards) payload.cards = state.generatedCards;
-  else payload.decklist = el.decklist.value;
-  return payload;
+  return {
+    name: el.deckName.value.trim() || 'Untitled deck',
+    format: 'standard',
+    cards: draftEntries(),
+  };
 }
 
-function compositionFromText(text) {
-  const result = { pokemon: 0, trainer: 0, energy: 0, unknown: 0 };
-  let section = '';
-  for (const rawLine of text.split('\n')) {
-    const line = rawLine.trim();
-    if (!line) continue;
-    const heading = line.match(/^(pok[eé]mon|trainer|energy)(?:\s+cards?)?\s*:/i);
-    if (heading) {
-      const key = heading[1].toLowerCase();
-      section = key.startsWith('pok') ? 'pokemon' : key;
-      continue;
-    }
-    const cardLine = line.match(/^(\d+)\s+(?:×\s+)?/);
-    if (!cardLine) continue;
-    const quantity = Number(cardLine[1]);
-    if (section) result[section] += quantity;
-    else result.unknown += quantity;
-  }
-  return result;
+function isBasicEnergy(card) {
+  return card.supertype === 'Energy' && (card.subtypes || []).includes('Basic');
 }
 
-function updateDeckShape() {
-  const composition = state.generatedComposition || compositionFromText(el.decklist.value);
-  const knownTotal = composition.pokemon + composition.trainer + composition.energy;
-  const total = knownTotal + (composition.unknown || 0);
-  el.totalCount.textContent = total;
-  el.pokemonCount.textContent = composition.pokemon;
-  el.trainerCount.textContent = composition.trainer;
-  el.energyCount.textContent = composition.energy;
-  el.deckMeter.style.setProperty('--deck-progress', String(Math.min(100, total / 60 * 100)));
-  el.deckMeter.classList.toggle('complete', total === 60);
-  if (!total) el.deckShapeNote.textContent = 'Paste a deck list to fill the box.';
-  else if (composition.unknown) el.deckShapeNote.textContent = `${total} cards found. Add Pokémon, Trainer, and Energy headings to see the mix.`;
-  else if (total === 60) el.deckShapeNote.textContent = 'The deck box is full. Check legality, then save it.';
-  else if (total < 60) el.deckShapeNote.textContent = `${60 - total} card${60 - total === 1 ? '' : 's'} left to add.`;
-  else el.deckShapeNote.textContent = `${total - 60} card${total - 60 === 1 ? '' : 's'} over the limit.`;
+function totalCards() {
+  return [...state.draft.values()].reduce((total, card) => total + card.quantity, 0);
 }
 
-function startBlankDeck({ focus = true } = {}) {
-  state.generatedCards = null;
-  state.generatedComposition = null;
-  el.deckFormat.value = 'standard';
-  el.deckName.value = 'Untitled deck';
-  el.decklist.value = '';
-  el.validationResult.className = 'result-box';
-  el.validationResult.textContent = 'Blank Standard deck ready. Add cards, then check the deck.';
-  el.optimizerResult.className = 'result-box';
-  el.optimizerResult.textContent = 'Quick Build is optional.';
-  updateDeckShape();
-  if (focus) {
-    el.deckName.focus();
-    el.deckName.select();
-    document.getElementById('builderTitle').scrollIntoView({ behavior: 'smooth', block: 'start' });
-  }
+function quantityForName(name) {
+  return [...state.draft.values()]
+    .filter(card => card.name === name && !isBasicEnergy(card))
+    .reduce((total, card) => total + card.quantity, 0);
+}
+
+function composition() {
+  return [...state.draft.values()].reduce((counts, card) => {
+    const key = card.supertype === 'Pokémon' ? 'pokemon' : String(card.supertype || '').toLowerCase();
+    if (key in counts) counts[key] += card.quantity;
+    return counts;
+  }, { pokemon: 0, trainer: 0, energy: 0 });
+}
+
+function setFeedback(message, kind = '') {
+  el.validationResult.className = `deck-feedback${kind ? ` ${kind}` : ''}`;
+  el.validationResult.innerHTML = message;
 }
 
 function showValidation(result) {
   const target = result.validation || result;
   const errors = target.errors || [];
-  el.validationResult.className = `result-box ${target.valid ? 'success' : 'error'}`;
-  el.validationResult.innerHTML = target.valid
-    ? `<strong>Valid ${escapeHtml(target.format)} deck.</strong> ${target.cardCount} cards across ${target.uniquePrints} prints.`
-    : `<strong>${errors.length} problem${errors.length === 1 ? '' : 's'}.</strong><ul>${errors.map(error => `<li>${escapeHtml(error.message)}</li>`).join('')}</ul>`;
+  if (target.valid) {
+    setFeedback(`<strong>Valid Standard deck.</strong> ${target.cardCount} cards across ${target.uniquePrints} prints.`, 'success');
+    return;
+  }
+  const visible = errors.slice(0, 4);
+  setFeedback(
+    `<strong>${errors.length} issue${errors.length === 1 ? '' : 's'} to fix.</strong>` +
+    `<ul>${visible.map(error => `<li>${escapeHtml(error.message)}</li>`).join('')}</ul>` +
+    (errors.length > visible.length ? `<span>${errors.length - visible.length} more</span>` : ''),
+    'error'
+  );
+}
+
+function cardPrint(card) {
+  return [card.set_name || card.set_id, card.number].filter(Boolean).join(' · ');
+}
+
+function renderDeck() {
+  const cards = [...state.draft.values()].sort((left, right) => {
+    const order = { 'Pokémon': 0, Trainer: 1, Energy: 2 };
+    return (order[left.supertype] ?? 3) - (order[right.supertype] ?? 3) || left.name.localeCompare(right.name);
+  });
+  const filtered = state.deckType ? cards.filter(card => card.supertype === state.deckType) : cards;
+  const counts = composition();
+  const total = totalCards();
+
+  el.totalCount.textContent = total;
+  el.allCount.textContent = total;
+  el.pokemonCount.textContent = counts.pokemon;
+  el.trainerCount.textContent = counts.trainer;
+  el.energyCount.textContent = counts.energy;
+  el.deckProgress.style.width = `${Math.min(100, total / 60 * 100)}%`;
+  el.deckReadiness.textContent = total === 60 ? 'Ready to check' : total > 60 ? `${total - 60} over` : `${60 - total} remaining`;
+  el.deckReadiness.className = `deck-readiness${total === 60 ? ' ready' : total > 60 ? ' over' : ''}`;
+
+  if (!cards.length) {
+    el.deckCardList.innerHTML = `
+      <div class="empty-deck">
+        <span class="empty-deck-ball" aria-hidden="true"><i></i></span>
+        <strong>Your deck starts empty</strong>
+        <p>Choose cards from the library. You can change quantities here at any time.</p>
+      </div>`;
+    return;
+  }
+  if (!filtered.length) {
+    el.deckCardList.innerHTML = '<div class="empty-deck"><strong>No cards in this section yet</strong><p>Choose another section or add cards from the library.</p></div>';
+    return;
+  }
+  el.deckCardList.innerHTML = filtered.map(card => `
+    <article class="deck-card-row" data-card-id="${escapeHtml(card.card_id)}">
+      <img src="${escapeHtml(card.image_small || card.image_large)}" alt="" loading="lazy">
+      <div class="deck-card-copy">
+        <strong>${escapeHtml(card.name)}</strong>
+        <span>${escapeHtml(card.supertype)} · ${escapeHtml(cardPrint(card))}</span>
+      </div>
+      <div class="deck-row-controls" aria-label="${escapeHtml(card.name)} quantity">
+        <button type="button" data-change="-1" aria-label="Remove one ${escapeHtml(card.name)}">−</button>
+        <strong>${card.quantity}</strong>
+        <button type="button" data-change="1" aria-label="Add one ${escapeHtml(card.name)}">+</button>
+      </div>
+    </article>`).join('');
+}
+
+function libraryCardMarkup(card) {
+  const draft = state.draft.get(card.id);
+  const quantity = draft?.quantity || 0;
+  const atNameLimit = !isBasicEnergy(card) && quantityForName(card.name) >= 4;
+  const full = totalCards() >= 60;
+  const setName = card.set?.name || card.set?.id || '';
+  return `
+    <article class="library-card" data-card-id="${escapeHtml(card.id)}">
+      <button class="library-card-art" type="button" data-add-card aria-label="Add ${escapeHtml(card.name)} to deck" ${atNameLimit || full ? 'disabled' : ''}>
+        <img src="${escapeHtml(card.images?.small || card.images?.large || '')}" alt="${escapeHtml(card.name)} card" loading="lazy">
+      </button>
+      <p class="library-card-name" title="${escapeHtml(card.name)}">${escapeHtml(card.name)}</p>
+      <p class="library-card-print" title="${escapeHtml(setName)}">${escapeHtml(setName)} · ${escapeHtml(card.number || '')}</p>
+      <div class="library-card-controls">
+        ${quantity ? `
+          <div class="library-quantity" aria-label="${escapeHtml(card.name)} quantity">
+            <button type="button" data-library-change="-1" aria-label="Remove one ${escapeHtml(card.name)}">−</button>
+            <strong>${quantity} in deck</strong>
+            <button type="button" data-library-change="1" aria-label="Add one ${escapeHtml(card.name)}" ${atNameLimit || full ? 'disabled' : ''}>+</button>
+          </div>` : `
+          <button class="add-card-button" type="button" data-add-card ${atNameLimit || full ? 'disabled' : ''}>${full ? 'Deck full' : atNameLimit ? '4-copy limit' : 'Add to deck'}</button>`}
+      </div>
+      ${atNameLimit && !quantity ? '<p class="library-card-copy-limit">Another print already fills the 4-copy limit</p>' : ''}
+    </article>`;
+}
+
+function renderLibrary() {
+  if (!state.library.length && state.libraryLoading) {
+    el.cardLibrary.innerHTML = '<div class="library-loading">Loading the Standard card library…</div>';
+    return;
+  }
+  if (!state.library.length) {
+    el.cardLibrary.innerHTML = '<div class="library-empty">No Standard cards match these filters.</div>';
+    return;
+  }
+  el.cardLibrary.innerHTML = state.library.map(libraryCardMarkup).join('');
+}
+
+function changeCardQuantity(cardId, change, sourceCard = null) {
+  const existing = state.draft.get(cardId);
+  const card = existing || (sourceCard ? draftCard(sourceCard, 0) : null);
+  if (!card) return;
+  const next = (existing?.quantity || 0) + change;
+
+  if (change > 0) {
+    if (totalCards() >= 60) {
+      setFeedback('The deck already has 60 cards. Remove one before adding another.', 'error');
+      return;
+    }
+    if (!isBasicEnergy(card) && quantityForName(card.name) >= 4) {
+      setFeedback(`${escapeHtml(card.name)} is already at the 4-copy limit across all prints.`, 'error');
+      return;
+    }
+  }
+  if (next <= 0) state.draft.delete(cardId);
+  else state.draft.set(cardId, { ...card, quantity: next });
+  setFeedback(totalCards() ? 'Deck changed. Check it when you reach 60 cards.' : 'Add cards to begin.');
+  renderDeck();
+  renderLibrary();
+}
+
+async function loadCards({ append = false } = {}) {
+  state.libraryLoading = true;
+  const request = ++state.libraryRequest;
+  if (!append) {
+    state.library = [];
+    state.libraryPage = 1;
+  }
+  renderLibrary();
+  el.loadMoreCards.hidden = true;
+  const params = new URLSearchParams({
+    legality: 'standard',
+    page: String(state.libraryPage),
+    page_size: '60',
+    sort: el.sortFilter.value,
+  });
+  const query = el.cardSearch.value.trim();
+  if (query) params.set('q', query);
+  if (el.setFilter.value) params.set('set_id', el.setFilter.value);
+  if (state.supertype) params.set('supertype', state.supertype);
+  try {
+    const result = await api(`/api/cards?${params}`);
+    if (request !== state.libraryRequest) return;
+    state.library = append ? [...state.library, ...result.items] : result.items;
+    state.libraryTotal = result.total;
+    state.libraryPages = result.pages;
+    const shown = state.library.length;
+    el.libraryResultCount.textContent = `${result.total.toLocaleString()} card${result.total === 1 ? '' : 's'} · showing ${shown.toLocaleString()}`;
+    el.loadMoreCards.hidden = state.libraryPage >= state.libraryPages;
+  } catch (error) {
+    if (request === state.libraryRequest) {
+      el.cardLibrary.innerHTML = `<div class="library-empty">${escapeHtml(error.message)}</div>`;
+      el.libraryResultCount.textContent = 'Could not load cards';
+    }
+  } finally {
+    if (request === state.libraryRequest) {
+      state.libraryLoading = false;
+      renderLibrary();
+    }
+  }
+}
+
+async function loadSets() {
+  try {
+    const result = await api('/api/sets');
+    for (const set of result.items) {
+      el.setFilter.add(new Option(`${set.name} (${set.card_count})`, set.id));
+    }
+  } catch (error) {
+    el.setFilter.add(new Option('Sets unavailable', '', true, true));
+    el.setFilter.disabled = true;
+  }
+}
+
+function startBlankDeck({ focus = false } = {}) {
+  state.draft.clear();
+  state.deckType = '';
+  el.deckName.value = 'Untitled deck';
+  el.deckFormat.value = 'standard';
+  el.decklist.value = '';
+  document.querySelectorAll('[data-deck-type]').forEach(button => {
+    button.classList.toggle('active', button.dataset.deckType === '');
+  });
+  setFeedback('Blank Standard deck ready. Add cards from the library.');
+  renderDeck();
+  renderLibrary();
+  if (focus) {
+    el.deckName.focus();
+    el.deckName.select();
+  }
+}
+
+function applyDraftCards(cards) {
+  state.draft.clear();
+  for (const source of cards || []) {
+    const card = draftCard(source, source.quantity);
+    if (card.card_id && card.quantity > 0) state.draft.set(card.card_id, card);
+  }
+  renderDeck();
+  renderLibrary();
 }
 
 async function validateDeck() {
@@ -114,87 +316,46 @@ async function saveDeck() {
   try {
     const result = await api('/api/decks', { method: 'POST', body: JSON.stringify(draftPayload()) });
     showValidation(result);
+    state.deckDetails.set(result.deck.id, result.deck);
     await loadDecks();
   } catch (error) {
     showValidation(error.payload || { valid: false, errors: [{ message: error.message }] });
   }
 }
 
+async function importDecklist() {
+  if (!el.decklist.value.trim()) {
+    setFeedback('Paste a Pokémon TCG Live deck list first.', 'error');
+    return;
+  }
+  const payload = { name: el.deckName.value.trim() || 'Imported deck', format: 'standard', decklist: el.decklist.value };
+  try {
+    const result = await api('/api/decks/validate', { method: 'POST', body: JSON.stringify(payload) });
+    applyDraftCards(result.cards);
+    showValidation(result);
+  } catch (error) {
+    const result = error.payload;
+    if (result?.cards?.length) applyDraftCards(result.cards);
+    showValidation(result || { valid: false, errors: [{ message: error.message }] });
+  }
+}
+
 async function optimize() {
-  el.optimizerResult.className = 'result-box';
-  el.optimizerResult.textContent = 'Generating…';
+  el.optimizerResult.textContent = 'Creating a starting list…';
   try {
     const result = await api('/api/optimize', {
       method: 'POST',
-      body: JSON.stringify({
-        format: el.deckFormat.value === 'unlimited' ? 'standard' : el.deckFormat.value,
-        type: el.energyType.value,
-        seed: Number(el.optimizerSeed.value || 1),
-      }),
+      body: JSON.stringify({ format: 'standard', type: el.energyType.value, seed: Number(el.optimizerSeed.value || 1) }),
     });
-    state.generatedCards = result.cards.map(card => ({ card_id: card.card_id, quantity: card.quantity }));
-    state.generatedComposition = result.cards.reduce((counts, card) => {
-      const key = card.supertype === 'Pokémon' ? 'pokemon' : String(card.supertype || '').toLowerCase();
-      if (key in counts) counts[key] += card.quantity;
-      return counts;
-    }, { pokemon: 0, trainer: 0, energy: 0 });
-    el.decklist.value = result.cards.map(card => `${card.quantity} × ${card.name}`).join('\n');
-    updateDeckShape();
-    el.optimizerResult.className = 'result-box success';
-    el.optimizerResult.innerHTML = `<strong>${result.cardCount}-card draft ready.</strong> ${result.cards.length} unique prints using ${escapeHtml(result.algorithmVersion)}. Validate it, name it, then save.`;
-    await validateDeck();
+    applyDraftCards(result.cards);
+    el.optimizerResult.textContent = `${result.cardCount}-card ${result.algorithmVersion} draft loaded. Tune it before saving.`;
+    setFeedback('Quick Build created a draft. Check the card choices and legality before saving.');
   } catch (error) {
-    el.optimizerResult.className = 'result-box error';
     el.optimizerResult.textContent = error.message;
   }
 }
 
-async function exportDeck(id) {
-  try {
-    const result = await api(`/api/decks/${id}/export`);
-    el.decklist.value = result.decklist;
-    state.generatedCards = null;
-    state.generatedComposition = null;
-    updateDeckShape();
-    el.decklist.focus();
-    await navigator.clipboard?.writeText(result.decklist);
-    el.validationResult.className = 'result-box success';
-    el.validationResult.textContent = 'Deck list loaded and copied to the clipboard.';
-    window.scrollTo({ top: 0, behavior: 'smooth' });
-  } catch (error) {
-    el.validationResult.className = 'result-box error';
-    el.validationResult.textContent = error.message;
-  }
-}
-
-function populateDeckSelect(select, selectedId) {
-  select.replaceChildren();
-  const placeholder = new Option('Choose a deck', '');
-  placeholder.selected = !selectedId;
-  select.add(placeholder);
-  for (const deck of state.decks) {
-    const option = new Option(`${deck.name} (${deck.card_count})`, deck.id);
-    option.selected = deck.id === selectedId;
-    select.add(option);
-  }
-}
-
-function updateSimulationAvailability() {
-  el.simulateButton.disabled = !(el.deckA.value && el.deckB.value);
-}
-
-function renderArenaDeck(deck, nameTarget, cardsTarget) {
-  if (!deck) {
-    nameTarget.textContent = 'Choose a deck';
-    cardsTarget.innerHTML = '<p>Save a deck to reveal its cards.</p>';
-    return;
-  }
-  nameTarget.textContent = deck.name;
-  cardsTarget.innerHTML = window.TcgComponents.cardLineup(deck.cards);
-}
-
 async function loadDeckDetail(id) {
-  if (!id) return null;
   if (!state.deckDetails.has(id)) {
     const result = await api(`/api/decks/${id}`);
     state.deckDetails.set(id, result.deck);
@@ -202,95 +363,96 @@ async function loadDeckDetail(id) {
   return state.deckDetails.get(id);
 }
 
-async function updateArenaDeck(select, nameTarget, cardsTarget) {
-  const summary = state.decks.find(deck => deck.id === select.value);
-  nameTarget.textContent = summary?.name || 'Choose a deck';
-  cardsTarget.innerHTML = summary ? '<p>Dealing cards…</p>' : '<p>Save a deck to reveal its cards.</p>';
+async function openSavedDeck(id) {
   try {
-    renderArenaDeck(await loadDeckDetail(select.value), nameTarget, cardsTarget);
+    const deck = await loadDeckDetail(id);
+    applyDraftCards(deck.cards);
+    el.deckName.value = deck.name;
+    const exported = await api(`/api/decks/${id}/export`);
+    el.decklist.value = exported.decklist;
+    setFeedback(`Loaded ${escapeHtml(deck.name)}. Changes stay in the builder until you save them.`, 'success');
+    window.scrollTo({ top: 0, behavior: 'smooth' });
   } catch (error) {
-    cardsTarget.innerHTML = `<p>${escapeHtml(error.message)}</p>`;
+    setFeedback(escapeHtml(error.message), 'error');
   }
-}
-
-async function updateArenaPreviews() {
-  await Promise.all([
-    updateArenaDeck(el.deckA, el.deckAName, el.deckACards),
-    updateArenaDeck(el.deckB, el.deckBName, el.deckBCards),
-  ]);
 }
 
 async function loadDecks() {
   try {
     const result = await api('/api/decks');
-    const previousA = el.deckA.value;
-    const previousB = el.deckB.value;
     state.decks = result.items;
     el.deckCount.textContent = `${state.decks.length} saved deck${state.decks.length === 1 ? '' : 's'}`;
-    el.savedDecks.innerHTML = state.decks.length ? '<p class="empty-copy">Opening deck boxes…</p>' : '<p class="empty-copy">No saved decks.</p>';
-    const details = await Promise.all(state.decks.map(deck => loadDeckDetail(deck.id).catch(() => null)));
-    if (state.decks.length) {
-      el.savedDecks.innerHTML = state.decks.map((deck, index) => (
-        window.TcgComponents.deckTile(deck, details[index])
-      )).join('');
+    if (!state.decks.length) {
+      el.savedDecks.innerHTML = '<p class="empty-copy">No saved decks yet.</p>';
+      return;
     }
-    populateDeckSelect(el.deckA, previousA);
-    populateDeckSelect(el.deckB, previousB);
-    updateSimulationAvailability();
-    el.simulationResult.textContent = state.decks.length
-      ? 'Choose the two decks and run the matchup.'
-      : 'Save a deck to the shelf to begin testing.';
-    await updateArenaPreviews();
+    el.savedDecks.innerHTML = '<p class="empty-copy">Opening deck boxes…</p>';
+    const details = await Promise.all(state.decks.map(deck => loadDeckDetail(deck.id).catch(() => null)));
+    el.savedDecks.innerHTML = state.decks.map((deck, index) => window.TcgComponents.deckTile(deck, details[index])).join('');
   } catch (error) {
     el.savedDecks.innerHTML = `<p class="empty-copy">${escapeHtml(error.message)}</p>`;
   }
 }
 
-async function simulate() {
-  el.simulationResult.className = 'result-box';
-  el.simulationResult.textContent = 'Running…';
-  try {
-    const result = await api('/api/simulations', {
-      method: 'POST',
-      body: JSON.stringify({
-        deckA: el.deckA.value, deckB: el.deckB.value,
-        games: Number(el.games.value || 100), seed: Number(el.simulationSeed.value || 1),
-        policyA: el.policyA.value, policyB: el.policyB.value,
-      }),
-    });
-    const deckAPercent = Math.round(result.deckAWins / result.games * 100);
-    const deckBPercent = Math.round(result.deckBWins / result.games * 100);
-    el.simulationResult.className = 'result-box success';
-    el.simulationResult.innerHTML = `<div class="scoreboard"><div><span>Deck A</span><strong>${deckAPercent}%</strong><small>${result.deckAWins} wins</small></div><div class="scoreboard-center"><strong>${result.games}</strong><span>games</span><small>${result.averageTurns.toFixed(1)} turns avg.</small></div><div><span>Deck B</span><strong>${deckBPercent}%</strong><small>${result.deckBWins} wins</small></div></div>${result.draws ? `<p>${result.draws} draw${result.draws === 1 ? '' : 's'}</p>` : ''}`;
-  } catch (error) {
-    el.simulationResult.className = 'result-box error';
-    el.simulationResult.textContent = error.message;
-  }
-}
-
-el.decklist.addEventListener('input', () => {
-  state.generatedCards = null;
-  state.generatedComposition = null;
-  updateDeckShape();
+let searchTimer = 0;
+el.cardSearch.addEventListener('input', () => {
+  window.clearTimeout(searchTimer);
+  searchTimer = window.setTimeout(() => loadCards(), 240);
 });
-el.newDeckButton.addEventListener('click', startBlankDeck);
+el.setFilter.addEventListener('change', () => loadCards());
+el.sortFilter.addEventListener('change', () => loadCards());
+el.cardTypeTabs.addEventListener('click', event => {
+  const button = event.target.closest('[data-supertype]');
+  if (!button) return;
+  state.supertype = button.dataset.supertype;
+  el.cardTypeTabs.querySelectorAll('[data-supertype]').forEach(tab => tab.setAttribute('aria-selected', String(tab === button)));
+  loadCards();
+});
+el.cardLibrary.addEventListener('click', event => {
+  const article = event.target.closest('[data-card-id]');
+  if (!article) return;
+  const card = state.library.find(item => item.id === article.dataset.cardId);
+  if (!card) return;
+  if (event.target.closest('[data-library-change]')) {
+    changeCardQuantity(card.id, Number(event.target.closest('[data-library-change]').dataset.libraryChange), card);
+  } else if (event.target.closest('[data-add-card]')) {
+    changeCardQuantity(card.id, 1, card);
+  }
+});
+el.deckCardList.addEventListener('click', event => {
+  const button = event.target.closest('[data-change]');
+  const row = event.target.closest('[data-card-id]');
+  if (button && row) changeCardQuantity(row.dataset.cardId, Number(button.dataset.change));
+});
+document.querySelector('.composition-tabs').addEventListener('click', event => {
+  const button = event.target.closest('[data-deck-type]');
+  if (!button) return;
+  state.deckType = button.dataset.deckType;
+  document.querySelectorAll('[data-deck-type]').forEach(tab => tab.classList.toggle('active', tab === button));
+  renderDeck();
+});
+el.loadMoreCards.addEventListener('click', () => {
+  if (state.libraryPage < state.libraryPages) {
+    state.libraryPage += 1;
+    loadCards({ append: true });
+  }
+});
+el.newDeckButton.addEventListener('click', () => startBlankDeck({ focus: true }));
 el.validateButton.addEventListener('click', validateDeck);
 el.saveButton.addEventListener('click', saveDeck);
+el.importButton.addEventListener('click', importDecklist);
 el.optimizeButton.addEventListener('click', optimize);
 el.refreshDecksButton.addEventListener('click', loadDecks);
-el.simulateButton.addEventListener('click', simulate);
-el.deckA.addEventListener('change', () => {
-  updateSimulationAvailability();
-  updateArenaDeck(el.deckA, el.deckAName, el.deckACards);
-});
-el.deckB.addEventListener('change', () => {
-  updateSimulationAvailability();
-  updateArenaDeck(el.deckB, el.deckBName, el.deckBCards);
-});
 el.savedDecks.addEventListener('click', event => {
   const button = event.target.closest('[data-export]');
-  if (button) exportDeck(button.dataset.export);
+  if (button) openSavedDeck(button.dataset.export);
+});
+document.addEventListener('keydown', event => {
+  if (event.key === '/' && !/INPUT|TEXTAREA|SELECT/.test(document.activeElement.tagName)) {
+    event.preventDefault();
+    el.cardSearch.focus();
+  }
 });
 
-startBlankDeck({ focus: false });
-loadDecks();
+startBlankDeck();
+Promise.all([loadSets(), loadCards(), loadDecks()]);

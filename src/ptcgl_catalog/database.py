@@ -387,6 +387,7 @@ def search_cards(
         "newest": "release_date DESC, set_id, name, id",
         "oldest": "release_date ASC, set_id, name, id",
         "name": "name, release_date DESC, id",
+        "evolution": "COALESCE(NULLIF(raw_data->>'evolvesFrom', ''), name), CASE WHEN 'Basic' = ANY(subtypes) THEN 0 WHEN 'Stage 1' = ANY(subtypes) THEN 1 WHEN 'Stage 2' = ANY(subtypes) THEN 2 ELSE 3 END, name, release_date DESC, id",
         "set": "set_name, number, id",
         "relevance": "rank DESC, release_date DESC, name",
     }.get(sort, "release_date DESC, set_id, name, id")

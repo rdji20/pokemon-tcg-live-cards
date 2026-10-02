@@ -23,3 +23,11 @@ def test_parse_decklist_reports_invalid_lines():
     assert not entries
     assert errors[0]["code"] == "invalid_line"
 
+
+def test_parse_live_decklist_accepts_hyphenated_promo_set_codes():
+    entries, errors = parse_decklist("4 Infernape V PR-SW SWSH252\n4 Victini ex PR-SV 142")
+    assert not errors
+    assert entries == [
+        {"quantity": 4, "name": "Infernape V", "set_code": "PR-SW", "number": "SWSH252", "line": 1},
+        {"quantity": 4, "name": "Victini ex", "set_code": "PR-SV", "number": "142", "line": 2},
+    ]

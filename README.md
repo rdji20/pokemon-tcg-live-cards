@@ -117,7 +117,10 @@ name matching, filters, sorting, and pagination. Standard-legal cards are the
 default view.
 
 Open [http://localhost:8000/deck.html](http://localhost:8000/deck.html) for the
-Deck Lab. Saved decks and experiment results live in PostgreSQL.
+Deck Lab. It starts with an empty Standard deck beside the complete searchable
+Standard catalog. Card search, set and type filters, sorting, progressive
+loading, copy limits, composition counts, imported lists, validation, and
+saved decks all use PostgreSQL-backed data rather than a browser-side catalog.
 
 Open [http://localhost:8000/arena.html](http://localhost:8000/arena.html) for
 the interactive Arena. It can use any saved, valid 60-card Standard deck from
