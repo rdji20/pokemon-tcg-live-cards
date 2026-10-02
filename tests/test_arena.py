@@ -1,5 +1,5 @@
 from ptcgl_catalog import arena as arena_module
-from ptcgl_catalog.arena import AI_POLICY_VERSION, ARENA_VERSION, MATCH_CLOCK_SECONDS, ArenaSession
+from ptcgl_catalog.arena import AI_POLICY_VERSION, ARENA_VERSION, MATCH_CLOCK_SECONDS, ArenaSession, report_arena_rule
 from ptcgl_catalog.game_rules import CORE_RULES_VERSION
 
 
@@ -202,3 +202,108 @@ def test_opening_hand_mulligans_until_it_contains_a_basic():
     assert found is not None
     assert any("Basic" in item["card"]["subtypes"] for item in found.players[0]["hand"])
     assert any("Basic" in item["card"]["subtypes"] for item in found.players[1]["hand"])
+
+
+def test_compiled_attack_executes_and_records_exact_rule_version():
+    session = ArenaSession(
+        player_name="Player",
+        player_deck=_deck("player"),
+        opponent_name="Opponent",
+        opponent_deck=_deck("opponent"),
+        seed=12,
+    )
+    _finish_setup(session)
+    active = session.players[0]["active"]
+    active["card"]["ruleProgram"] = {
+        "rules": [{
+            "id": "attack-tackle", "sourceName": "Tackle", "sourceType": "attack",
+            "trigger": "attack", "conditions": [],
+            "effects": [
+                {"op": "deal_damage", "target": "opponent.active", "amount": 30, "value": "", "conditions": []},
+                {"op": "draw_cards", "target": "self", "amount": 1, "value": "", "conditions": []},
+            ],
+        }],
+    }
+    active["card"]["ruleVersion"] = {
+        "id": "00000000-0000-0000-0000-000000000001",
+        "programHash": "program-hash", "sourceTextHash": "source-hash",
+        "aiStatus": "passed", "manualStatus": "pending", "flagged": False,
+    }
+    energy = next(item for item in session.players[0]["hand"] if item["card"]["supertype"] == "Energy")
+    session.players[0]["hand"].remove(energy)
+    active["energy"].append(energy)
+    session.turn_number = 3
+    session.players[0]["turnsTaken"] = 2
+    hand_before = len(session.players[0]["hand"])
+    attack = next(action for action in session.legal_actions() if action["type"] == "attack")
+    assert attack["coverage"] == "complete"
+    session.apply(attack)
+    assert session.players[1]["active"]["damage"] == 30
+    assert len(session.players[0]["hand"]) >= hand_before + 1
+    trace = session.rule_trace[-1]
+    assert trace["ruleVersionId"] == "00000000-0000-0000-0000-000000000001"
+    assert trace["ruleId"] == "attack-tackle"
+    assert trace["ruleKey"] == "player-pokemon:source-hash:program-hash:attack-tackle"
+    assert trace["operations"] == ["deal_damage", "draw_cards"]
+
+
+def test_rule_modifier_can_protect_a_benched_pokemon_from_ex_attack_damage():
+    session = ArenaSession(
+        player_name="Player",
+        player_deck=_deck("player"),
+        opponent_name="Opponent",
+        opponent_deck=_deck("opponent"),
+        seed=13,
+    )
+    _finish_setup(session)
+    if not session.players[0]["bench"]:
+        basic = next(item for item in session.players[0]["deck"] if item["card"]["supertype"] == "Pokémon" and "Basic" in item["card"]["subtypes"])
+        session.players[0]["deck"].remove(basic)
+        session.players[0]["hand"].append(basic)
+        session._bench(session.players[0], basic["uid"])
+    protected = session.players[0]["bench"][0]
+    opponent = session.players[1]["active"]
+    opponent["card"]["subtypes"].append("ex")
+    source = {"uid": "supporter", "card": {"id": "test", "name": "Protection"}}
+    session._store_modifier(0, source, {
+        "op": "create_modifier", "target": "chosen_self_pokemon.damage_received",
+        "amount": 0, "value": "prevent_all",
+        "parameters": [
+            {"key": "duration", "value": "during_opponent_next_turn"},
+            {"key": "source_filter", "value": "opponent.pokemon_ex.attacks"},
+        ],
+    }, protected["uid"])
+    assert session._modified_attack_damage(1, opponent, protected, 80) == 0
+
+
+def test_arena_rule_flag_uses_the_exact_execution_trace(monkeypatch):
+    session = ArenaSession(
+        player_name="Player",
+        player_deck=_deck("player"),
+        opponent_name="Opponent",
+        opponent_deck=_deck("opponent"),
+        seed=14,
+    )
+    session.rule_trace.append({
+        "traceId": 7,
+        "cardId": "me1-113",
+        "ruleVersionId": "00000000-0000-0000-0000-000000000001",
+        "ruleId": "supporter-acerolas-mischief",
+        "summary": "Prevented attack damage.",
+    })
+    arena_module._SESSIONS[session.id] = session
+    captured = {}
+
+    def fake_report(**kwargs):
+        captured.update(kwargs)
+        return {"id": "report-id"}
+
+    monkeypatch.setattr("ptcgl_catalog.rule_reviews.report_rule_problem", fake_report)
+    try:
+        result = report_arena_rule(session.id, {"traceId": 7, "reason": "Bench protection was wrong"})
+    finally:
+        arena_module._SESSIONS.pop(session.id, None)
+    assert result["id"] == "report-id"
+    assert captured["rule_id"] == "supporter-acerolas-mischief"
+    assert captured["trace"]["traceId"] == 7
+    assert captured["reason"] == "Bench protection was wrong"

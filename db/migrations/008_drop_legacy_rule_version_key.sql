@@ -1,0 +1,4 @@
+ALTER TABLE card_rule_versions
+    DROP CONSTRAINT IF EXISTS card_rule_versions_card_id_source_text_hash_schema_version_ai_prov_key;
+ALTER TABLE card_rule_versions
+    DROP CONSTRAINT IF EXISTS card_rule_versions_card_id_source_text_hash_schema_version__key;

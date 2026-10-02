@@ -248,7 +248,7 @@ Bench timing, or the long tail of card-specific effects. Every simulation
 result states these limitations so prototype output is not mistaken for a
 complete TCG rules judgment.
 
-Interactive Arena `arena-0.3.0` is a separate engine checkpoint. It starts with
+Interactive Arena `arena-0.4.0` is a separate engine checkpoint. It starts with
 the official pregame sequence: coin call, the winner's first-or-second choice,
 seven-card opening hands, repeated no-Basic mulligans, optional bonus draws,
 player-selected Active and Bench Pokémon, and six Prize cards. It then enforces
@@ -257,14 +257,24 @@ Weakness, Resistance, Knock Outs, Prize taking, promotion choice, first-turn
 restrictions, and the principal win conditions. Its opponent is
 `simple-ai-0.1.0`: a deterministic setup, attach, and highest-printed-damage
 policy. Each side has a separate server-authoritative 20-minute Pokémon TCG
-Live match clock, and reaching zero is a game loss. The long tail of
-card-specific text and Abilities is not complete; partial attacks say `base
-damage only` and the Rules coverage panel lists the boundary.
+Live match clock, and reaching zero is a game loss.
+
+For every processed card, Arena loads the newest AI-passed program matching the
+card's current source-text hash. Review status does not disable exploratory
+play. Every execution records the immutable program hash, database version,
+rule ID, primitive operations, review status, and result. Its stable key is
+`cardId:sourceTextHash:programHash:ruleId`. The Match details
+drawer lets a player flag that exact execution as incorrect; Rule Review shows
+the captured trace beside the card version. Unprocessed attacks remain visibly
+partial and say `base damage only`. Generated rule choices currently use a
+deterministic policy when an explicit board target is not present; replacing
+those policy choices with player prompts does not change the rule identity.
 
 Universal rules constants and coverage live in
 `src/ptcgl_catalog/game_rules.py`. Executable card programs remain in the
-separate versioned card-rule pipeline. The browser does not duplicate game
-rules in JavaScript; it renders legal actions supplied by the Python engine.
+separate versioned card-rule pipeline, while the Arena event adapter executes
+their effects. The browser does not duplicate game rules in JavaScript; it
+renders legal actions, state, and rule traces supplied by the Python engine.
 
 The core turn and setup behavior follows the
 [official Pokémon Trading Card Game rulebook](https://tcg.pokemon.com/assets/img/global/tcg-rulebook/ME02_Web_Rulebook_en-us_HiRes.pdf).

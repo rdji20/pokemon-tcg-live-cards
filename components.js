@@ -71,6 +71,7 @@
   function battlePokemon(pokemon, slot = 'active') {
     if (!pokemon) return `<div class="battle-pokemon empty ${escapeHtml(slot)}"><span>Empty</span></div>`;
     const hpPercent = pokemon.hp ? Math.max(0, Math.min(100, pokemon.remainingHp / pokemon.hp * 100)) : 0;
+    const condition = (pokemon.specialConditions || []).map(value => value.charAt(0).toUpperCase() + value.slice(1)).join(', ');
     return `
       <article class="battle-pokemon ${escapeHtml(slot)}" data-pokemon-uid="${escapeHtml(pokemon.uid)}">
         <img src="${escapeHtml(pokemon.image || '')}" alt="${escapeHtml(pokemon.name)} card">
@@ -78,7 +79,7 @@
           <strong>${escapeHtml(pokemon.name)}</strong>
           <span>${pokemon.remainingHp} / ${pokemon.hp} HP</span>
           <div class="hp-track" aria-label="${pokemon.remainingHp} of ${pokemon.hp} HP"><i style="width:${hpPercent}%"></i></div>
-          <small>${pokemon.energyCount} Energy</small>
+          <small>${pokemon.energyCount} Energy${condition ? ` / ${escapeHtml(condition)}` : ''}</small>
         </div>
       </article>
     `;

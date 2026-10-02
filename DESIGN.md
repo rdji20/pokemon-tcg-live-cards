@@ -4,7 +4,7 @@ This file is the source of truth for reusable interface components in Pokémon
 TCG Live Lab. New screens should compose these components instead of creating
 one-off panels, badges, or decorative cards.
 
-Last updated: 2026-10-01
+Last updated: 2026-10-02
 
 ## Visual direction
 
@@ -120,6 +120,10 @@ Rules:
   match clock beside their identity. Only the player currently making a game
   decision loses time; zero is a game loss. The running clock uses a full
   yellow clock surface, never a standalone status dot.
+- Match details includes an Executed card rules trace. Each entry names the
+  card, exact rule ID, review state, and resolved outcome, with one compact
+  `Flag incorrect` action. A flag captures the immutable rule version and game
+  trace; it does not interrupt or rewrite the running match.
 - At narrow widths, preserve horizontally scrollable hands and Benches rather
   than shrinking the cards until their art is illegible.
 

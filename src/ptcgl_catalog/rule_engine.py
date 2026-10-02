@@ -22,6 +22,39 @@ ALLOWED_OPERATIONS = {
 ALLOWED_OPERATORS = {"equals", "not_equals", "at_least", "at_most", "exists", "contains", "not_contains"}
 
 
+def program_hash(program: dict[str, Any]) -> str:
+    """Return the immutable identity of executable semantics, excluding provenance."""
+    executable = {
+        "schemaVersion": program.get("schemaVersion"),
+        "cardId": program.get("cardId"),
+        "sourceTextHash": program.get("sourceTextHash"),
+        "rules": program.get("rules", []),
+        "unsupportedText": program.get("unsupportedText", []),
+    }
+    canonical = json.dumps(executable, ensure_ascii=False, sort_keys=True, separators=(",", ":"))
+    return hashlib.sha256(canonical.encode("utf-8")).hexdigest()
+
+
+def matching_rule(
+    program: dict[str, Any] | None,
+    *,
+    trigger: str,
+    source_name: str | None = None,
+    source_type: str | None = None,
+) -> dict[str, Any] | None:
+    if not program:
+        return None
+    for rule in program.get("rules", []):
+        if rule.get("trigger") != trigger:
+            continue
+        if source_name is not None and rule.get("sourceName") != source_name:
+            continue
+        if source_type is not None and rule.get("sourceType") != source_type:
+            continue
+        return rule
+    return None
+
+
 def card_source_text(card: dict[str, Any]) -> str:
     payload = {
         "id": card["id"],
@@ -126,6 +159,8 @@ def _condition_matches(condition: dict[str, Any], context: dict[str, Any]) -> bo
     expected = condition.get("value", "")
     operator = condition["operator"]
     if operator == "exists":
+        if isinstance(actual, (str, list, tuple, set, dict)):
+            return bool(actual)
         return actual is not None
     if operator == "contains":
         return expected in (actual or [])

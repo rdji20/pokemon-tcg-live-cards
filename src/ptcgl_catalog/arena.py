@@ -23,11 +23,19 @@ from .game_rules import (
     setup_prompt,
 )
 from .optimization import optimize_deck
+from .rule_engine import executable_effects, matching_rule
 
 
-ARENA_VERSION = "arena-0.3.0"
+ARENA_VERSION = "arena-0.4.0"
 AI_POLICY_VERSION = "simple-ai-0.1.0"
 MATCH_CLOCK_SECONDS = 20 * 60
+ARENA_SUPPORTED_OPERATIONS = {
+    "choose_cards", "clear_special_conditions", "confuse", "create_modifier",
+    "deal_damage", "discard_cards", "discard_energy", "draw_cards", "flip_coin",
+    "heal_damage", "inspect_top_deck", "knockout", "move_cards", "move_energy",
+    "request_choice", "set_prize_value", "shuffle_cards", "shuffle_zone_into_deck",
+    "swap_cards", "switch_active",
+}
 _SESSIONS: dict[str, "ArenaSession"] = {}
 _SESSION_LOCK = threading.RLock()
 
@@ -48,6 +56,15 @@ def _card_record(row: dict[str, Any]) -> dict[str, Any]:
         "retreatCost": list(raw.get("retreatCost") or []),
         "weaknesses": list(raw.get("weaknesses") or []),
         "resistances": list(raw.get("resistances") or []),
+        "ruleProgram": row.get("rule_program"),
+        "ruleVersion": None if not row.get("rule_version_id") else {
+            "id": str(row["rule_version_id"]),
+            "programHash": row.get("program_hash"),
+            "sourceTextHash": row.get("rule_source_text_hash"),
+            "aiStatus": row.get("ai_status"),
+            "manualStatus": row.get("manual_status"),
+            "flagged": bool(row.get("rule_flagged")),
+        },
     }
 
 
@@ -55,10 +72,26 @@ def _load_cards(connection: psycopg.Connection[Any], entries: list[dict[str, Any
     ids = [str(item["card_id"]) for item in entries]
     rows = connection.execute(
         """
-        SELECT id, name, supertype, subtypes, types, hp, image_small,
-               image_large, raw_data
-        FROM cards
-        WHERE active AND standard_status = 'legal' AND id = ANY(%s)
+        SELECT c.id, c.name, c.supertype, c.subtypes, c.types, c.hp,
+               c.image_small, c.image_large, c.raw_data,
+               rv.id AS rule_version_id, rv.source_text_hash AS rule_source_text_hash,
+               rv.program_hash, rv.program AS rule_program,
+               rv.ai_status, rv.manual_status,
+               EXISTS (
+                   SELECT 1 FROM card_rule_reports report
+                   WHERE report.rule_version_id = rv.id AND report.status = 'open'
+               ) AS rule_flagged
+        FROM cards c
+        LEFT JOIN LATERAL (
+            SELECT candidate.*
+            FROM card_rule_versions candidate
+            WHERE candidate.card_id = c.id
+              AND candidate.source_text_hash = c.source_text_hash
+              AND candidate.ai_status = 'passed'
+            ORDER BY candidate.created_at DESC, candidate.id DESC
+            LIMIT 1
+        ) rv ON true
+        WHERE c.active AND c.standard_status = 'legal' AND c.id = ANY(%s)
         """,
         (ids,),
     ).fetchall()
@@ -85,7 +118,7 @@ def _load_saved_deck(connection: psycopg.Connection[Any], deck_id: str) -> tuple
     if deck is None:
         raise ValueError("Saved deck was not found")
     if deck["format"] != "standard":
-        raise ValueError("Arena 0.2 supports Standard decks only")
+        raise ValueError("Arena 0.4 supports Standard decks only")
     entries = connection.execute(
         "SELECT card_id, quantity FROM deck_cards WHERE deck_id = %s ORDER BY card_id",
         (deck_id,),
@@ -132,12 +165,18 @@ def _pokemon(instance: dict[str, Any], *, entered_turn: int) -> dict[str, Any]:
         "stack": [instance],
         "damage": 0,
         "energy": [],
+        "tools": [],
+        "specialConditions": [],
         "enteredTurn": entered_turn,
     }
 
 
 def _card_view(instance: dict[str, Any]) -> dict[str, Any]:
-    return {"uid": instance["uid"], **instance["card"]}
+    card = instance["card"]
+    return {
+        "uid": instance["uid"],
+        **{key: value for key, value in card.items() if key != "ruleProgram"},
+    }
 
 
 def _pokemon_view(pokemon: dict[str, Any] | None) -> dict[str, Any] | None:
@@ -151,6 +190,8 @@ def _pokemon_view(pokemon: dict[str, Any] | None) -> dict[str, Any] | None:
         "remainingHp": max(0, card["hp"] - pokemon["damage"]),
         "energy": [_card_view(item) for item in pokemon["energy"]],
         "energyCount": len(pokemon["energy"]),
+        "tools": [_card_view(item) for item in pokemon.get("tools", [])],
+        "specialConditions": list(pokemon.get("specialConditions") or []),
     }
 
 
@@ -179,6 +220,11 @@ class ArenaSession:
         self.winner: int | None = None
         self.reason: str | None = None
         self.pending_promotion: int | None = None
+        self.stadium: dict[str, Any] | None = None
+        self.modifiers: list[dict[str, Any]] = []
+        self.pending_events: dict[str, dict[str, Any]] = {}
+        self.rule_trace: list[dict[str, Any]] = []
+        self.rule_trace_sequence = 0
         self.clock_seconds = [float(MATCH_CLOCK_SECONDS), float(MATCH_CLOCK_SECONDS)]
         self.clock_owner: int | None = 0
         self.clock_started_at = time.monotonic()
@@ -223,6 +269,8 @@ class ArenaSession:
             "energyAttached": False,
             "retreated": False,
             "supporterPlayed": False,
+            "stadiumPlayed": False,
+            "abilitiesUsed": set(),
             "turnsTaken": 0,
         }
 
@@ -340,6 +388,12 @@ class ArenaSession:
         player["energyAttached"] = False
         player["retreated"] = False
         player["supporterPlayed"] = False
+        player["stadiumPlayed"] = False
+        player["abilitiesUsed"] = set()
+        self.pending_events = {
+            uid: event for uid, event in self.pending_events.items()
+            if event.get("playerIndex") != self.current_player
+        }
         if not self._draw(player):
             self.winner = 1 - self.current_player
             self.reason = "deck_out"
@@ -352,6 +406,10 @@ class ArenaSession:
             return
         self.current_player = 1 - self.current_player
         self.turn_number += 1
+        self.modifiers = [
+            item for item in self.modifiers
+            if item["expiresAfter"] is None or self.turn_number <= item["expiresAfter"]
+        ]
         self._switch_clock(self.current_player)
         self._begin_turn()
         if self.current_player == 1 and self.winner is None:
@@ -370,6 +428,386 @@ class ArenaSession:
         if pokemon is None:
             raise ValueError("That Pokémon is not in play")
         return pokemon
+
+    @staticmethod
+    def _parameters(effect: dict[str, Any]) -> dict[str, str]:
+        return {str(item.get("key")): str(item.get("value", "")) for item in effect.get("parameters", [])}
+
+    @staticmethod
+    def _in_play(player: dict[str, Any]) -> list[dict[str, Any]]:
+        return [item for item in [player.get("active"), *player.get("bench", [])] if item]
+
+    def _rule_context(
+        self,
+        player_index: int,
+        *,
+        source: dict[str, Any] | None = None,
+        event: dict[str, Any] | None = None,
+    ) -> dict[str, Any]:
+        player = self.players[player_index]
+        opponent = self.players[1 - player_index]
+        source = source or player.get("active")
+        active = player.get("active")
+        opposing_active = opponent.get("active")
+        attached_types = [] if source is None else [_energy_type(item) for item in source.get("energy", [])]
+        location = None
+        if source is not None:
+            location = "active" if active and active["uid"] == source["uid"] else "bench"
+        return {
+            "self": {
+                "location": location,
+                "prizes": len(player["prizes"]),
+                "prize_cards_remaining": len(player["prizes"]),
+                "damage_counters": 0 if source is None else int(source.get("damage", 0)) // 10,
+                "extra_energy_count": 0,
+                "attached_energy": {"types": attached_types},
+                "bench": {"has_damage_counters": any(item["damage"] > 0 for item in player["bench"])},
+                "active": {} if active is None else {
+                    "types": active["card"]["types"],
+                    "subtypes": active["card"]["subtypes"],
+                    "special_condition": active.get("specialConditions", []),
+                },
+            },
+            "opponent": {
+                "prizes": len(opponent["prizes"]),
+                "prize_cards_remaining": len(opponent["prizes"]),
+                "response": "yes",
+                "active": {} if opposing_active is None else {
+                    "types": opposing_active["card"]["types"],
+                    "subtypes": opposing_active["card"]["subtypes"],
+                    "special_condition": opposing_active.get("specialConditions", []),
+                },
+            },
+            "turn": {
+                "is_self": self.current_player == player_index,
+                "ability_used": {rule_id: True for rule_id in player["abilitiesUsed"]},
+            },
+            "event": event or {},
+        }
+
+    @staticmethod
+    def _program_rule(card: dict[str, Any], trigger: str, source_name: str | None = None) -> dict[str, Any] | None:
+        return matching_rule(card.get("ruleProgram"), trigger=trigger, source_name=source_name)
+
+    def _trace_rule(
+        self,
+        *,
+        player_index: int,
+        source: dict[str, Any],
+        rule: dict[str, Any],
+        effects: list[dict[str, Any]],
+        summary: str,
+    ) -> None:
+        version = source["card"].get("ruleVersion")
+        if not version:
+            return
+        self.rule_trace_sequence += 1
+        rule_key = ":".join((
+            source["card"]["id"], version["sourceTextHash"],
+            version["programHash"], rule["id"],
+        ))
+        self.rule_trace.append({
+            "traceId": self.rule_trace_sequence,
+            "turn": self.turn_number,
+            "player": "player" if player_index == 0 else "opponent",
+            "cardId": source["card"]["id"],
+            "cardName": source["card"]["name"],
+            "ruleVersionId": version["id"],
+            "programHash": version["programHash"],
+            "ruleId": rule["id"],
+            "ruleKey": rule_key,
+            "trigger": rule["trigger"],
+            "review": {
+                "ai": version["aiStatus"],
+                "manual": version["manualStatus"],
+                "flagged": version["flagged"],
+            },
+            "operations": [effect["op"] for effect in effects],
+            "summary": summary,
+        })
+        self.rule_trace = self.rule_trace[-100:]
+
+    def _chosen_self(self, player_index: int, requested_uid: str | None = None) -> dict[str, Any] | None:
+        player = self.players[player_index]
+        if requested_uid:
+            return next((item for item in self._in_play(player) if item["uid"] == requested_uid), None)
+        return max(self._in_play(player), key=lambda item: (item["damage"], item["card"]["hp"]), default=None)
+
+    def _resolve_moved_to_active(self, player_index: int, pokemon: dict[str, Any]) -> None:
+        event = {
+            "playerIndex": player_index,
+            "moved_to_active": {
+                "name": pokemon["card"]["name"],
+                "previous_location": "self.bench",
+            },
+        }
+        self.pending_events[pokemon["uid"]] = event
+        player = self.players[player_index]
+        for rule in (pokemon["card"].get("ruleProgram") or {}).get("rules", []):
+            if rule.get("trigger") != "activate_ability":
+                continue
+            if not any(str(condition.get("field", "")).startswith("event.") for condition in rule.get("conditions", [])):
+                continue
+            effects = executable_effects(
+                pokemon["card"]["ruleProgram"], rule["id"],
+                self._rule_context(player_index, source=pokemon, event=event),
+                seed=self.seed + self.turn_number,
+            )
+            if not effects:
+                continue
+            resolved, _ = self._execute_rule(player_index, pokemon, rule, event=event)
+            player["abilitiesUsed"].add(rule["id"])
+            self._trace_rule(
+                player_index=player_index, source=pokemon, rule=rule,
+                effects=resolved, summary=f"Entry Ability {rule['sourceName']} resolved.",
+            )
+
+    def _choose_deck_cards(self, player: dict[str, Any], effect: dict[str, Any], runtime: dict[str, Any]) -> None:
+        value = str(effect.get("value") or "")
+        amount = int(effect.get("amount") or 0)
+        candidates = list(player["deck"])
+        if effect.get("target") == "inspected_cards":
+            candidates = list(runtime.get("inspected", []))
+        if value == "basic_fighting_energy_or_basic_fighting_pokemon":
+            candidates = [item for item in candidates if (
+                (_is_energy(item) and _energy_type(item) == "Fighting")
+                or (_is_basic(item) and "Fighting" in item["card"]["types"])
+            )]
+        elif value == "up_to_grass_pokemon_or_stadium":
+            candidates = [item for item in candidates if (
+                (item["card"]["supertype"] == "Pokémon" and "Grass" in item["card"]["types"])
+                or "Stadium" in item["card"]["subtypes"]
+            )]
+        elif value == "mega_evolution_pokemon_ex":
+            candidates = [item for item in candidates if (
+                any(subtype in {"MEGA", "Mega Evolution"} for subtype in item["card"]["subtypes"])
+                and "ex" in item["card"]["subtypes"]
+            )]
+        elif effect.get("target") == "inspected_cards":
+            parameters = self._parameters(effect)
+            if parameters.get("filter.supertype"):
+                candidates = [item for item in candidates if item["card"]["supertype"] == parameters["filter.supertype"]]
+        selected = candidates[:amount]
+        parameters = self._parameters(effect)
+        if parameters.get("requires_cost_paid") == "true" and not runtime.get("cost_paid"):
+            return
+        selection_id = parameters.get("selection_id", "selected")
+        runtime.setdefault("selections", {})[selection_id] = selected
+        if parameters.get("destination") == "self.hand":
+            for item in selected:
+                if item in player["deck"]:
+                    player["deck"].remove(item)
+                if item in runtime.get("inspected", []):
+                    runtime["inspected"].remove(item)
+                player["hand"].append(item)
+
+    def _store_modifier(
+        self,
+        player_index: int,
+        source: dict[str, Any],
+        effect: dict[str, Any],
+        requested_uid: str | None,
+    ) -> None:
+        target_uid = None
+        effect_target = str(effect.get("target", ""))
+        if effect_target.startswith("chosen_self_pokemon"):
+            chosen = self._chosen_self(player_index, requested_uid)
+            target_uid = chosen["uid"] if chosen else None
+        elif effect_target.startswith("opponent.active"):
+            opposing_active = self.players[1 - player_index].get("active")
+            target_uid = opposing_active["uid"] if opposing_active else None
+        parameters = self._parameters(effect)
+        duration = parameters.get("duration", "")
+        expires_after = None
+        if duration == "during_opponent_next_turn":
+            expires_after = self.turn_number + 1
+        elif duration == "during_self_next_turn":
+            expires_after = self.turn_number + 2
+        self.modifiers.append({
+            "owner": player_index,
+            "sourceUid": source["uid"],
+            "targetUid": target_uid,
+            "createdTurn": self.turn_number,
+            "expiresAfter": expires_after,
+            "effect": effect,
+        })
+
+    def _apply_non_damage_effect(
+        self,
+        player_index: int,
+        source: dict[str, Any],
+        effect: dict[str, Any],
+        runtime: dict[str, Any],
+        *,
+        target_uid: str | None = None,
+        switch_target_uid: str | None = None,
+    ) -> None:
+        player = self.players[player_index]
+        opponent = self.players[1 - player_index]
+        op = effect["op"]
+        target = str(effect.get("target") or "")
+        amount = int(effect.get("amount") or 0)
+        value = str(effect.get("value") or "")
+        parameters = self._parameters(effect)
+        if "damage" in source and "ex" in source["card"]["subtypes"] and target.startswith("opponent"):
+            protected_target = opponent.get("active")
+            if target == "opponent.in_play.chosen_pokemon" and target_uid:
+                protected_target = next((item for item in self._in_play(opponent) if item["uid"] == target_uid), protected_target)
+            if protected_target and any(
+                modifier["effect"].get("target") == "chosen_self_pokemon.attack_effects_received"
+                and modifier["owner"] == 1 - player_index
+                and modifier["targetUid"] == protected_target["uid"]
+                and (modifier["expiresAfter"] is None or self.turn_number <= modifier["expiresAfter"])
+                for modifier in self.modifiers
+            ):
+                return
+        if op == "draw_cards":
+            if value == "until_hand_size_equals_self_psychic_pokemon_in_play":
+                goal = sum("Psychic" in item["card"]["types"] for item in self._in_play(player))
+                amount = max(0, goal - len(player["hand"]))
+            self._draw(player, amount)
+        elif op == "discard_cards":
+            if target == "self.hand":
+                player["discard"].extend(player["hand"])
+                player["hand"] = []
+            elif target == "opponent.deck.top":
+                for _ in range(min(amount, len(opponent["deck"]))):
+                    opponent["discard"].append(opponent["deck"].pop())
+            elif target == "opponent.active.attached_pokemon_tools" and opponent.get("active"):
+                opponent["discard"].extend(opponent["active"].get("tools", []))
+                opponent["active"]["tools"] = []
+        elif op == "discard_energy":
+            owner = opponent if target.startswith("opponent") else player
+            if target == "self.hand":
+                energy = next((item for item in owner["hand"] if _is_energy(item)), None)
+                if energy:
+                    owner["hand"].remove(energy)
+                    owner["discard"].append(energy)
+                    runtime["cost_paid"] = True
+                return
+            pokemon = owner.get("active")
+            if target == "opponent.in_play.chosen_pokemon":
+                pokemon = next((item for item in self._in_play(owner) if item["energy"]), pokemon)
+            if pokemon:
+                count = len(pokemon["energy"]) if value == "all" else min(amount, len(pokemon["energy"]))
+                for _ in range(count):
+                    owner["discard"].append(pokemon["energy"].pop())
+        elif op == "shuffle_zone_into_deck" and target == "self.hand":
+            player["deck"].extend(player["hand"])
+            player["hand"] = []
+            self.rng.shuffle(player["deck"])
+        elif op == "inspect_top_deck":
+            runtime["inspected"] = [player["deck"].pop() for _ in range(min(amount, len(player["deck"])))]
+        elif op == "choose_cards":
+            self._choose_deck_cards(player, effect, runtime)
+        elif op == "move_cards":
+            destination = player if target == "self.hand" else opponent
+            if value == "take_prize":
+                if destination["prizes"]:
+                    destination["hand"].append(destination["prizes"].pop())
+            else:
+                selection_id = parameters.get("selection_id", "selected")
+                selected = runtime.get("selections", {}).get(selection_id, [])
+                for item in selected[:amount]:
+                    if item in player["deck"]:
+                        player["deck"].remove(item)
+                    if item in runtime.get("inspected", []):
+                        runtime["inspected"].remove(item)
+                    destination["hand"].append(item)
+        elif op == "shuffle_cards":
+            if target == "unchosen_inspected_cards":
+                player["deck"].extend(runtime.get("inspected", []))
+                runtime["inspected"] = []
+            self.rng.shuffle(player["deck"])
+        elif op == "heal_damage":
+            chosen = self._chosen_self(player_index, target_uid)
+            if chosen:
+                chosen["damage"] = 0 if value == "all" else max(0, chosen["damage"] - amount)
+                runtime.setdefault("selections", {})[parameters.get("selection_id", "chosen_self_pokemon")] = chosen
+        elif op == "clear_special_conditions":
+            selection = runtime.get("selections", {}).get(parameters.get("selection_id", "chosen_self_pokemon"))
+            chosen = selection if isinstance(selection, dict) else self._chosen_self(player_index, target_uid)
+            if chosen:
+                chosen["specialConditions"] = []
+        elif op == "confuse":
+            chosen = player.get("active") if target == "self.active" else opponent.get("active")
+            if chosen and "confused" not in chosen["specialConditions"]:
+                chosen["specialConditions"].append("confused")
+        elif op == "switch_active":
+            owner = player if target == "self" else opponent
+            if value == "optional" and not switch_target_uid:
+                return
+            requested = switch_target_uid or target_uid
+            chosen = next((item for item in owner["bench"] if item["uid"] == requested), None)
+            chosen = chosen or (owner["bench"][0] if owner["bench"] else None)
+            if chosen:
+                owner["bench"].remove(chosen)
+                if owner["active"]:
+                    owner["active"]["specialConditions"] = []
+                    owner["bench"].append(owner["active"])
+                owner["active"] = chosen
+                self._resolve_moved_to_active(self.players.index(owner), chosen)
+        elif op == "move_energy":
+            in_play = self._in_play(player)
+            source_candidates = player["bench"] if parameters.get("source") == "self.benched_pokemon" else in_play
+            destination = player.get("active") if target == "self.active" else self._chosen_self(player_index, target_uid)
+            source_pokemon = next((
+                item for item in source_candidates
+                if item["energy"] and destination and item["uid"] != destination["uid"]
+            ), None)
+            if source_pokemon and destination and source_pokemon["uid"] != destination["uid"]:
+                count = len(source_pokemon["energy"]) if value == "any_amount" else min(amount, len(source_pokemon["energy"]))
+                for _ in range(count):
+                    destination["energy"].append(source_pokemon["energy"].pop())
+        elif op == "swap_cards":
+            if player["hand"] and player["deck"]:
+                hand_card = player["hand"].pop(0)
+                deck_card = player["deck"].pop()
+                player["hand"].append(deck_card)
+                player["deck"].append(hand_card)
+        elif op == "create_modifier":
+            if target not in {
+                "self.turn.supporter_plays", "self.turn.item_plays", "self.turn.stadium_plays",
+                "game.stadium_slot", "self.play_stadium.same_name_allowed",
+                "current_attack.damage", "current_attack.usable_on_first_turn_when_going_first",
+            }:
+                self._store_modifier(player_index, source, effect, target_uid)
+
+    def _execute_rule(
+        self,
+        player_index: int,
+        source: dict[str, Any],
+        rule: dict[str, Any],
+        *,
+        target_uid: str | None = None,
+        switch_target_uid: str | None = None,
+        event: dict[str, Any] | None = None,
+    ) -> tuple[list[dict[str, Any]], dict[str, Any]]:
+        context = self._rule_context(player_index, source=source, event=event)
+        if source.get("card", {}).get("attacks"):
+            attack = next((item for item in source["card"]["attacks"] if item.get("name") == rule.get("sourceName")), None)
+            if attack:
+                context["self"]["extra_energy_count"] = max(0, len(source["energy"]) - len(attack.get("cost") or []))
+        effects = executable_effects(source["card"]["ruleProgram"], rule["id"], context, seed=self.seed + self.turn_number + self.rule_trace_sequence)
+        runtime: dict[str, Any] = {"selections": {}, "cost_paid": False}
+        for effect in effects:
+            if effect["op"] not in {"deal_damage", "knockout", "set_prize_value", "flip_coin", "request_choice"}:
+                self._apply_non_damage_effect(
+                    player_index, source, effect, runtime,
+                    target_uid=target_uid, switch_target_uid=switch_target_uid,
+                )
+        if any(effect.get("op") == "move_cards" and effect.get("value") == "take_prize" for effect in effects):
+            players_without_prizes = [index for index, player in enumerate(self.players) if not player["prizes"]]
+            if len(players_without_prizes) == 1:
+                self.winner = players_without_prizes[0]
+                self.reason = "prizes"
+            elif len(players_without_prizes) == 2:
+                self.winner = -1
+                self.reason = "sudden_death_required"
+            if self.winner is not None:
+                self.phase = "finished"
+                self.clock_owner = None
+        return effects, runtime
 
     def _bench(self, player: dict[str, Any], card_uid: str) -> None:
         if len(player["bench"]) >= MAX_BENCH:
@@ -393,12 +831,26 @@ class ArenaSession:
         player["energyAttached"] = True
         self.log.append(f"{player['name']} attached {item['card']['name']} to {target['card']['name']}.")
 
+    def _same_turn_evolution_allowed(self, target: dict[str, Any], evolution: dict[str, Any]) -> bool:
+        if not self.stadium:
+            return False
+        rule = self._program_rule(self.stadium["card"], "continuous")
+        if not rule or not any(
+            effect.get("op") == "create_modifier"
+            and effect.get("target") == "all_players.in_play.grass_pokemon.evolution_timing"
+            and effect.get("value") == "allow_same_turn"
+            for effect in rule.get("effects", [])
+        ):
+            return False
+        return "Grass" in target["card"]["types"] and "Grass" in evolution["card"]["types"]
+
     def _evolve(self, player: dict[str, Any], card_uid: str, target_uid: str) -> None:
         if player["turnsTaken"] <= 1:
             raise ValueError("Pokémon cannot evolve on a player's first turn")
         item = self._find_hand(player, card_uid)
         target = self._find_pokemon(player, target_uid)
-        if target["enteredTurn"] >= player["turnsTaken"]:
+        used_stadium_exception = target["enteredTurn"] >= player["turnsTaken"] and self._same_turn_evolution_allowed(target, item)
+        if target["enteredTurn"] >= player["turnsTaken"] and not used_stadium_exception:
             raise ValueError("A Pokémon cannot evolve during the turn it was played")
         if item["card"].get("evolvesFrom") != target["card"]["name"]:
             raise ValueError("That Evolution card does not evolve from the selected Pokémon")
@@ -406,8 +858,17 @@ class ArenaSession:
         target["stack"].append(item)
         target["card"] = item["card"]
         target["uid"] = item["uid"]
+        target["specialConditions"] = []
         target["enteredTurn"] = player["turnsTaken"]
         self.log.append(f"{player['name']} evolved into {item['card']['name']}.")
+        if used_stadium_exception and self.stadium:
+            rule = self._program_rule(self.stadium["card"], "continuous")
+            if rule:
+                self._trace_rule(
+                    player_index=self.players.index(player), source=self.stadium, rule=rule,
+                    effects=rule.get("effects", []),
+                    summary=f"{self.stadium['card']['name']} allowed same-turn Grass evolution.",
+                )
 
     def _retreat(self, player: dict[str, Any], target_uid: str) -> None:
         if player["retreated"]:
@@ -416,14 +877,26 @@ class ArenaSession:
         target = next((item for item in player["bench"] if item["uid"] == target_uid), None)
         if active is None or target is None:
             raise ValueError("Choose a Benched Pokémon to retreat into")
+        player_index = self.players.index(player)
+        if any(
+            modifier["effect"].get("target") == "opponent.active.retreat_allowed"
+            and modifier["owner"] != player_index
+            and modifier["targetUid"] == active["uid"]
+            and modifier["effect"].get("value") == "false"
+            and (modifier["expiresAfter"] is None or self.turn_number <= modifier["expiresAfter"])
+            for modifier in self.modifiers
+        ):
+            raise ValueError("An attack effect prevents this Active Pokémon from retreating")
         cost = len(active["card"]["retreatCost"])
         if len(active["energy"]) < cost:
             raise ValueError("The Active Pokémon does not have enough Energy to retreat")
         for _ in range(cost):
             player["discard"].append(active["energy"].pop())
         player["bench"].remove(target)
+        active["specialConditions"] = []
         player["bench"].append(active)
         player["active"] = target
+        self._resolve_moved_to_active(player_index, target)
         player["retreated"] = True
         self.log.append(f"{player['name']} retreated into {target['card']['name']}.")
 
@@ -438,11 +911,24 @@ class ArenaSession:
         attacker = self.players[attacker_index]
         defender = self.players[defender_index]
         knocked_out = defender["active"]
-        rules = " ".join(knocked_out["card"].get("rules") or [])
-        prize_match = re.search(r"takes\s+(\d+)\s+Prize", rules, re.IGNORECASE)
-        prize_count = int(prize_match.group(1)) if prize_match else 1
+        prize_count = 1
+        prize_rule = self._program_rule(knocked_out["card"], "on_knockout")
+        if prize_rule:
+            effects, _ = self._execute_rule(defender_index, knocked_out, prize_rule)
+            prize_effect = next((effect for effect in effects if effect["op"] == "set_prize_value"), None)
+            if prize_effect:
+                prize_count = int(prize_effect.get("amount") or 1)
+            self._trace_rule(
+                player_index=defender_index, source=knocked_out, rule=prize_rule,
+                effects=effects, summary=f"Knock Out prize value set to {prize_count}.",
+            )
+        else:
+            rules = " ".join(knocked_out["card"].get("rules") or [])
+            prize_match = re.search(r"takes\s+(\d+)\s+Prize", rules, re.IGNORECASE)
+            prize_count = int(prize_match.group(1)) if prize_match else 1
         defender["discard"].extend(knocked_out["stack"])
         defender["discard"].extend(knocked_out["energy"])
+        defender["discard"].extend(knocked_out.get("tools", []))
         defender["active"] = None
         self.log.append(f"{knocked_out['card']['name']} was Knocked Out. {attacker['name']} takes {prize_count} Prize card{'s' if prize_count != 1 else ''}.")
         self._take_prizes(attacker, prize_count)
@@ -461,6 +947,29 @@ class ArenaSession:
         defender["active"] = promoted
         self.log.append(f"{defender['name']} promoted {promoted['card']['name']}.")
 
+    def _knock_out_benched(self, attacker_index: int, defender_index: int, knocked_out: dict[str, Any]) -> None:
+        attacker = self.players[attacker_index]
+        defender = self.players[defender_index]
+        if knocked_out not in defender["bench"]:
+            return
+        prize_count = 1
+        prize_rule = self._program_rule(knocked_out["card"], "on_knockout")
+        if prize_rule:
+            effects, _ = self._execute_rule(defender_index, knocked_out, prize_rule)
+            prize_effect = next((effect for effect in effects if effect["op"] == "set_prize_value"), None)
+            if prize_effect:
+                prize_count = int(prize_effect.get("amount") or 1)
+            self._trace_rule(
+                player_index=defender_index, source=knocked_out, rule=prize_rule,
+                effects=effects, summary=f"Knock Out prize value set to {prize_count}.",
+            )
+        defender["bench"].remove(knocked_out)
+        defender["discard"].extend(knocked_out["stack"])
+        defender["discard"].extend(knocked_out["energy"])
+        defender["discard"].extend(knocked_out.get("tools", []))
+        self.log.append(f"Benched {knocked_out['card']['name']} was Knocked Out. {attacker['name']} takes {prize_count} Prize card{'s' if prize_count != 1 else ''}.")
+        self._take_prizes(attacker, prize_count)
+
     def _promote(self, player_index: int, target_uid: str) -> None:
         if self.pending_promotion != player_index:
             raise ValueError("No replacement Active Pokémon is required")
@@ -473,7 +982,80 @@ class ArenaSession:
         self.pending_promotion = None
         self.log.append(f"{player['name']} promoted {target['card']['name']}.")
 
-    def _attack(self, attacker_index: int, attack_index: int) -> None:
+    def _can_pay_attack(self, player_index: int, pokemon: dict[str, Any], cost: list[str]) -> bool:
+        energy = list(pokemon["energy"])
+        player = self.players[player_index]
+        doubles_grass = any(
+            any(
+                rule.get("trigger") == "continuous"
+                and any(
+                    effect.get("op") == "create_modifier"
+                    and effect.get("target") == "self.in_play.basic_grass_energy.energy_provided"
+                    for effect in rule.get("effects", [])
+                )
+                for rule in (item["card"].get("ruleProgram") or {}).get("rules", [])
+            )
+            for item in self._in_play(player)
+        )
+        if doubles_grass:
+            energy.extend(item for item in pokemon["energy"] if _energy_type(item) == "Grass")
+        return _can_pay(cost, energy)
+
+    def _modified_attack_damage(
+        self,
+        attacker_index: int,
+        source: dict[str, Any],
+        target: dict[str, Any],
+        amount: int,
+    ) -> int:
+        damage = amount
+        target_index = 1 - attacker_index
+        source_is_ex = "ex" in source["card"]["subtypes"]
+        source_has_rule_box = bool(source["card"].get("rules")) or any(
+            subtype in {"ex", "V", "VMAX", "VSTAR", "GX"}
+            for subtype in source["card"]["subtypes"]
+        )
+        target_is_ex = target is self.players[target_index].get("active") and "ex" in target["card"]["subtypes"]
+        for tool in source.get("tools", []):
+            rule = self._program_rule(tool["card"], "continuous")
+            if not rule or source_has_rule_box or not target_is_ex:
+                continue
+            for effect in rule.get("effects", []):
+                if effect.get("op") == "create_modifier" and effect.get("target") == "attached_pokemon.attacks.damage":
+                    damage += int(effect.get("amount") or 0)
+                    self._trace_rule(
+                        player_index=attacker_index, source=tool, rule=rule,
+                        effects=[effect], summary=f"{tool['card']['name']} added {int(effect.get('amount') or 0)} attack damage.",
+                    )
+        for modifier in self.modifiers:
+            effect = modifier["effect"]
+            field = str(effect.get("target") or "")
+            if modifier["expiresAfter"] is not None and self.turn_number > modifier["expiresAfter"]:
+                continue
+            if field == "self.attacks.damage" and modifier["owner"] == attacker_index and modifier["sourceUid"] == source["uid"] and self.turn_number > modifier["createdTurn"]:
+                damage += int(effect.get("amount") or 0)
+            elif field == "opponent.active.attacks.damage" and modifier["owner"] == target_index and modifier["targetUid"] == source["uid"]:
+                damage += int(effect.get("amount") or 0)
+            elif field == "chosen_self_pokemon.damage_received" and modifier["owner"] == target_index and modifier["targetUid"] == target["uid"]:
+                if effect.get("value") == "prevent_all" and source_is_ex:
+                    damage = 0
+        return max(0, damage)
+
+    def _post_weakness_damage(self, target_index: int, target: dict[str, Any], damage: int) -> int:
+        for modifier in self.modifiers:
+            effect = modifier["effect"]
+            if modifier["expiresAfter"] is not None and self.turn_number > modifier["expiresAfter"]:
+                continue
+            if (
+                effect.get("target") == "self.in_play.metal_pokemon.damage_taken_from_opponent_attacks"
+                and modifier["owner"] == target_index
+                and "Metal" in target["card"]["types"]
+            ):
+                damage += int(effect.get("amount") or 0)
+        return max(0, damage)
+
+    def _attack(self, attacker_index: int, action: dict[str, Any]) -> None:
+        attack_index = int(action["attackIndex"])
         defender_index = 1 - attacker_index
         attacker = self.players[attacker_index]
         defender = self.players[defender_index]
@@ -484,31 +1066,81 @@ class ArenaSession:
         if attack_index < 0 or attack_index >= len(attacks):
             raise ValueError("Unknown attack")
         attack = attacks[attack_index]
-        if not _can_pay(list(attack.get("cost") or []), active["energy"]):
+        if not self._can_pay_attack(attacker_index, active, list(attack.get("cost") or [])):
             raise ValueError("The Active Pokémon does not have the Energy required for that attack")
-        damage = _printed_damage(attack)
-        text = str(attack.get("text") or "").strip()
-        supported_text = not text or bool(
-            re.fullmatch(r"Draw (?:(?:a|1) card|\d+ cards?)\.?", text, re.IGNORECASE)
-        )
-        attack_type = (active["card"]["types"] or [""])[0]
-        weakness = next((item for item in defender["active"]["card"]["weaknesses"] if item.get("type") == attack_type), None)
-        resistance = next((item for item in defender["active"]["card"]["resistances"] if item.get("type") == attack_type), None)
-        if weakness and str(weakness.get("value", "")).startswith("×"):
-            damage *= int(str(weakness["value"])[1:] or 1)
-        if resistance and str(resistance.get("value", "")).startswith("-"):
-            damage = max(0, damage - int(str(resistance["value"])[1:] or 0))
-        defender["active"]["damage"] += damage
-        coverage_note = "" if supported_text else " Card text was not executed in Arena 0.2."
-        self.log.append(f"{active['card']['name']} used {attack['name']} for {damage} damage.{coverage_note}")
-        draw_match = re.fullmatch(r"Draw (?:a|1) card\.?", text, re.IGNORECASE)
-        draw_many = re.fullmatch(r"Draw (\d+) cards?\.?", text, re.IGNORECASE)
-        if draw_match:
-            self._draw(attacker)
-        elif draw_many:
-            self._draw(attacker, int(draw_many.group(1)))
-        if defender["active"]["damage"] >= defender["active"]["card"]["hp"]:
+        if "confused" in active.get("specialConditions", []):
+            confusion_result = self.rng.choice(("heads", "tails"))
+            self.log.append(f"Confusion flip: {confusion_result}.")
+            if confusion_result == "tails":
+                active["damage"] += 30
+                self.log.append(f"{active['card']['name']}'s attack failed and it took 30 damage from Confusion.")
+                if active["damage"] >= active["card"]["hp"]:
+                    self._knock_out(defender_index, attacker_index)
+                return
+        rule = self._program_rule(active["card"], "attack", str(attack.get("name")))
+        if rule:
+            effects, _ = self._execute_rule(
+                attacker_index, active, rule,
+                target_uid=action.get("targetUid"),
+                switch_target_uid=action.get("switchTargetUid"),
+            )
+            active_damage = 0
+            other_damage: list[tuple[dict[str, Any], int]] = []
+            context = self._rule_context(attacker_index, source=active)
+            coin = next((effect for effect in effects if effect["op"] == "flip_coin"), None)
+            heads = int(coin.get("heads", int(coin.get("result") == "heads"))) if coin else 0
+            for effect in effects:
+                if effect["op"] == "create_modifier" and effect.get("target") == "current_attack.damage":
+                    multiplier = int(context["self"].get("damage_counters", 0))
+                    if effect.get("value") == "multiply":
+                        active_damage += int(effect.get("amount") or 0) * multiplier
+                if effect["op"] != "deal_damage":
+                    continue
+                amount = int(effect.get("amount") or 0)
+                if effect.get("value") in {"multiply", "bonus_multiply"}:
+                    amount *= heads
+                target = str(effect.get("target") or "")
+                if target == "opponent.active":
+                    active_damage += amount
+                elif target == "self":
+                    other_damage.append((active, amount))
+                elif target == "chosen_opponent_benched_pokemon":
+                    chosen = next((item for item in defender["bench"] if item["uid"] == action.get("targetUid")), None)
+                    if chosen:
+                        other_damage.append((chosen, amount))
+            active_damage = self._modified_attack_damage(attacker_index, active, defender["active"], active_damage)
+            attack_type = (active["card"]["types"] or [""])[0]
+            weakness = next((item for item in defender["active"]["card"]["weaknesses"] if item.get("type") == attack_type), None)
+            resistance = next((item for item in defender["active"]["card"]["resistances"] if item.get("type") == attack_type), None)
+            if weakness and str(weakness.get("value", "")).startswith("×"):
+                active_damage *= int(str(weakness["value"])[1:] or 1)
+            if resistance and str(resistance.get("value", "")).startswith("-"):
+                active_damage = max(0, active_damage - int(str(resistance["value"])[1:] or 0))
+            active_damage = self._post_weakness_damage(defender_index, defender["active"], active_damage)
+            defender["active"]["damage"] += active_damage
+            for target, amount in other_damage:
+                if target is active:
+                    target["damage"] += max(0, amount)
+                else:
+                    bench_damage = self._modified_attack_damage(attacker_index, active, target, amount)
+                    target["damage"] += self._post_weakness_damage(defender_index, target, bench_damage)
+                    if target in defender["bench"] and target["damage"] >= target["card"]["hp"]:
+                        self._knock_out_benched(attacker_index, defender_index, target)
+            if any(effect["op"] == "knockout" for effect in effects):
+                self._knock_out(attacker_index, defender_index)
+            self._trace_rule(
+                player_index=attacker_index, source=active, rule=rule, effects=effects,
+                summary=f"{attack['name']} resolved for {active_damage} Active damage.",
+            )
+            self.log.append(f"{active['card']['name']} used {attack['name']} for {active_damage} damage. Rule {rule['id']} executed.")
+        else:
+            damage = _printed_damage(attack)
+            defender["active"]["damage"] += damage
+            self.log.append(f"{active['card']['name']} used {attack['name']} for {damage} damage. No compiled rule was available; printed damage only.")
+        if defender.get("active") and defender["active"]["damage"] >= defender["active"]["card"]["hp"]:
             self._knock_out(attacker_index, defender_index)
+        if active["damage"] >= active["card"]["hp"] and attacker.get("active") is active:
+            self._knock_out(defender_index, attacker_index)
 
     def _trainer_actions(self, player_index: int) -> list[dict[str, Any]]:
         player = self.players[player_index]
@@ -528,15 +1160,39 @@ class ArenaSession:
                 )
             ):
                 continue
-            if card["name"].startswith("Professor's Research"):
-                actions.append({"type": "play_trainer", "cardUid": item["uid"], "label": f"Play {card['name']}"})
-            elif card["name"] == "Boss's Orders":
-                for target in opponent["bench"]:
-                    actions.append({"type": "play_trainer", "cardUid": item["uid"], "targetUid": target["uid"], "label": f"Boss's Orders → {target['card']['name']}"})
-            else:
-                rules = " ".join(card["rules"]).strip()
-                if re.fullmatch(r"Draw (?:a|\d+) cards?\.?", rules, re.IGNORECASE):
-                    actions.append({"type": "play_trainer", "cardUid": item["uid"], "label": f"Play {card['name']}"})
+            rule = self._program_rule(card, "play_card")
+            if rule:
+                if not executable_effects(card["ruleProgram"], rule["id"], self._rule_context(player_index, source=item), seed=self.seed):
+                    continue
+                targets_self = any(str(effect.get("target", "")).startswith("chosen_self_pokemon") for effect in rule.get("effects", []))
+                switches_opponent = any(effect.get("op") == "switch_active" and effect.get("target") == "opponent" for effect in rule.get("effects", []))
+                moves_energy = any(effect.get("op") == "move_energy" and effect.get("target") == "self.in_play" for effect in rule.get("effects", []))
+                if switches_opponent:
+                    for target in opponent["bench"]:
+                        actions.append({"type": "play_trainer", "cardUid": item["uid"], "targetUid": target["uid"], "ruleId": rule["id"], "label": f"Play {card['name']} → {target['card']['name']}"})
+                elif targets_self or moves_energy:
+                    for target in self._in_play(player):
+                        actions.append({"type": "play_trainer", "cardUid": item["uid"], "targetUid": target["uid"], "ruleId": rule["id"], "label": f"Play {card['name']} → {target['card']['name']}"})
+                else:
+                    actions.append({"type": "play_trainer", "cardUid": item["uid"], "ruleId": rule["id"], "label": f"Play {card['name']}"})
+                continue
+            continuous = self._program_rule(card, "continuous")
+            if not continuous:
+                continue
+            if "Stadium" in card["subtypes"] and not player["stadiumPlayed"]:
+                if self.stadium is None or self.stadium["card"]["name"] != card["name"]:
+                    actions.append({
+                        "type": "play_stadium", "cardUid": item["uid"],
+                        "ruleId": continuous["id"], "label": f"Play {card['name']}",
+                    })
+            elif "Pokémon Tool" in card["subtypes"] or "Tool" in card["subtypes"]:
+                for target in self._in_play(player):
+                    if not target.get("tools"):
+                        actions.append({
+                            "type": "attach_tool", "cardUid": item["uid"],
+                            "targetUid": target["uid"], "ruleId": continuous["id"],
+                            "label": f"Attach {card['name']} → {target['card']['name']}",
+                        })
         return actions
 
     def _play_trainer(self, player_index: int, card_uid: str, target_uid: str | None = None) -> None:
@@ -555,25 +1211,80 @@ class ArenaSession:
                 raise ValueError("That Supporter cannot be played now")
             player["supporterPlayed"] = True
         player["hand"].remove(item)
-        if card["name"].startswith("Professor's Research"):
-            player["discard"].extend(player["hand"])
-            player["hand"] = []
-            self._draw(player, 7)
-        elif card["name"] == "Boss's Orders":
-            target = next((candidate for candidate in opponent["bench"] if candidate["uid"] == target_uid), None)
-            if target is None:
-                raise ValueError("Choose an opposing Benched Pokémon")
-            opponent["bench"].remove(target)
-            opponent["bench"].append(opponent["active"])
-            opponent["active"] = target
-        else:
-            rules = " ".join(card["rules"]).strip()
-            match = re.fullmatch(r"Draw (a|\d+) cards?\.?", rules, re.IGNORECASE)
-            if not match:
-                raise ValueError("That Trainer's effect is not supported in Arena 0.2")
-            self._draw(player, 1 if match.group(1).lower() == "a" else int(match.group(1)))
+        rule = self._program_rule(card, "play_card")
+        if rule is None:
+            raise ValueError("That Trainer does not have a compiled rule program")
+        effects, _ = self._execute_rule(player_index, item, rule, target_uid=target_uid)
         player["discard"].append(item)
-        self.log.append(f"{player['name']} played {card['name']}.")
+        self._trace_rule(
+            player_index=player_index, source=item, rule=rule, effects=effects,
+            summary=f"{card['name']} resolved from the hand.",
+        )
+        self.log.append(f"{player['name']} played {card['name']}. Rule {rule['id']} executed.")
+
+    def _activate_ability(self, player_index: int, source_uid: str, rule_id: str, target_uid: str | None = None) -> None:
+        player = self.players[player_index]
+        if self.stadium and self.stadium["uid"] == source_uid:
+            source = self.stadium
+        else:
+            source = self._find_pokemon(player, source_uid)
+        rule = next((
+            item for item in (source["card"].get("ruleProgram") or {}).get("rules", [])
+            if item.get("id") == rule_id and item.get("trigger") == "activate_ability"
+        ), None)
+        if rule is None:
+            raise ValueError("That ability does not have a compiled rule")
+        pending_event = self.pending_events.get(source_uid, {})
+        effects, _ = self._execute_rule(
+            player_index, source, rule, target_uid=target_uid,
+            event=pending_event,
+        )
+        player["abilitiesUsed"].add(rule_id)
+        self._trace_rule(
+            player_index=player_index, source=source, rule=rule, effects=effects,
+            summary=f"Ability {rule['sourceName']} resolved.",
+        )
+        self.log.append(f"{source['card']['name']} used {rule['sourceName']}. Rule {rule_id} executed.")
+
+    def _play_stadium(self, player_index: int, card_uid: str, rule_id: str) -> None:
+        player = self.players[player_index]
+        item = self._find_hand(player, card_uid)
+        if "Stadium" not in item["card"]["subtypes"]:
+            raise ValueError("That card is not a Stadium")
+        if player["stadiumPlayed"]:
+            raise ValueError("Only one Stadium can be played each turn")
+        if self.stadium and self.stadium["card"]["name"] == item["card"]["name"]:
+            raise ValueError("A Stadium with the same name is already in play")
+        player["hand"].remove(item)
+        if self.stadium:
+            previous_owner = int(self.stadium.get("owner", 0))
+            self.players[previous_owner]["discard"].append(self.stadium)
+        item["owner"] = player_index
+        self.stadium = item
+        player["stadiumPlayed"] = True
+        rule = next((rule for rule in item["card"]["ruleProgram"]["rules"] if rule["id"] == rule_id), None)
+        if rule:
+            self._trace_rule(
+                player_index=player_index, source=item, rule=rule, effects=rule.get("effects", []),
+                summary=f"{item['card']['name']} entered the Stadium zone.",
+            )
+        self.log.append(f"{player['name']} played {item['card']['name']} into the Stadium zone.")
+
+    def _attach_tool(self, player_index: int, card_uid: str, target_uid: str, rule_id: str) -> None:
+        player = self.players[player_index]
+        item = self._find_hand(player, card_uid)
+        target = self._find_pokemon(player, target_uid)
+        if target.get("tools"):
+            raise ValueError("That Pokémon already has a Pokémon Tool")
+        player["hand"].remove(item)
+        target["tools"].append(item)
+        rule = next((rule for rule in item["card"]["ruleProgram"]["rules"] if rule["id"] == rule_id), None)
+        if rule:
+            self._trace_rule(
+                player_index=player_index, source=item, rule=rule, effects=rule.get("effects", []),
+                summary=f"{item['card']['name']} was attached to {target['card']['name']}.",
+            )
+        self.log.append(f"{player['name']} attached {item['card']['name']} to {target['card']['name']}.")
 
     def legal_actions(self, player_index: int = 0) -> list[dict[str, Any]]:
         if self.winner is not None:
@@ -638,38 +1349,122 @@ class ArenaSession:
                 if not evolves_from:
                     continue
                 for target in [player["active"], *player["bench"]]:
-                    if target and target["card"]["name"] == evolves_from and target["enteredTurn"] < player["turnsTaken"]:
+                    if target and target["card"]["name"] == evolves_from and (
+                        target["enteredTurn"] < player["turnsTaken"] or self._same_turn_evolution_allowed(target, item)
+                    ):
                         actions.append({"type": "evolve", "cardUid": item["uid"], "targetUid": target["uid"], "label": f"Evolve {evolves_from} → {item['card']['name']}"})
         active = player["active"]
-        if active and not first_turn_restricted(
-            player_index=player_index,
-            first_player=self.first_player,
-            turns_taken=player["turnsTaken"],
-        ):
+        if active:
             for index, attack in enumerate(active["card"]["attacks"]):
-                if _can_pay(list(attack.get("cost") or []), active["energy"]):
-                    text = str(attack.get("text") or "").strip()
-                    supported_text = not text or bool(
-                        re.fullmatch(r"Draw (?:(?:a|1) card|\d+ cards?)\.?", text, re.IGNORECASE)
-                    )
-                    suffix = "" if supported_text else " (base damage only)"
-                    actions.append({
-                        "type": "attack",
-                        "attackIndex": index,
-                        "coverage": "complete" if supported_text else "partial",
-                        "label": f"Attack: {attack['name']}{suffix}",
-                    })
-        if active and player["bench"] and not player["retreated"] and len(active["energy"]) >= len(active["card"]["retreatCost"]):
+                rule = self._program_rule(active["card"], "attack", str(attack.get("name")))
+                restricted = first_turn_restricted(
+                    player_index=player_index,
+                    first_player=self.first_player,
+                    turns_taken=player["turnsTaken"],
+                )
+                first_turn_override = bool(rule and any(
+                    effect.get("op") == "create_modifier"
+                    and effect.get("target") == "current_attack.usable_on_first_turn_when_going_first"
+                    for effect in rule.get("effects", [])
+                ))
+                if not self._can_pay_attack(player_index, active, list(attack.get("cost") or [])) or (restricted and not first_turn_override):
+                    continue
+                base = {
+                    "type": "attack",
+                    "attackIndex": index,
+                    "coverage": "complete" if rule else "partial",
+                    "ruleId": rule["id"] if rule else None,
+                }
+                bench_target = bool(rule and any(effect.get("target") == "chosen_opponent_benched_pokemon" for effect in rule.get("effects", [])))
+                optional_switch = bool(rule and any(effect.get("op") == "switch_active" and effect.get("target") == "self" for effect in rule.get("effects", [])))
+                target_options = self.players[1 - player_index]["bench"] if bench_target else [None]
+                switch_options = [None, *player["bench"]] if optional_switch else [None]
+                for target in target_options:
+                    for switch_target in switch_options:
+                        action = dict(base)
+                        if target:
+                            action["targetUid"] = target["uid"]
+                        if switch_target:
+                            action["switchTargetUid"] = switch_target["uid"]
+                        qualifiers = []
+                        if target:
+                            qualifiers.append(target["card"]["name"])
+                        if switch_target:
+                            qualifiers.append(f"switch to {switch_target['card']['name']}")
+                        suffix = f" → {', '.join(qualifiers)}" if qualifiers else ""
+                        fallback = " (base damage only)" if not rule else ""
+                        action["label"] = f"Attack: {attack['name']}{suffix}{fallback}"
+                        actions.append(action)
+        retreat_locked = bool(active and any(
+            modifier["effect"].get("target") == "opponent.active.retreat_allowed"
+            and modifier["owner"] != player_index
+            and modifier["targetUid"] == active["uid"]
+            and modifier["effect"].get("value") == "false"
+            and (modifier["expiresAfter"] is None or self.turn_number <= modifier["expiresAfter"])
+            for modifier in self.modifiers
+        ))
+        if active and player["bench"] and not player["retreated"] and not retreat_locked and len(active["energy"]) >= len(active["card"]["retreatCost"]):
             actions.extend(
                 {"type": "retreat", "targetUid": target["uid"], "label": f"Retreat → {target['card']['name']}"}
                 for target in player["bench"]
             )
         actions.extend(self._trainer_actions(player_index))
+        for pokemon in self._in_play(player):
+            for rule in (pokemon["card"].get("ruleProgram") or {}).get("rules", []):
+                if rule.get("trigger") != "activate_ability" or rule["id"] in player["abilitiesUsed"]:
+                    continue
+                if not executable_effects(
+                    pokemon["card"]["ruleProgram"], rule["id"],
+                    self._rule_context(
+                        player_index, source=pokemon,
+                        event=self.pending_events.get(pokemon["uid"], {}),
+                    ), seed=self.seed,
+                ):
+                    continue
+                targets_self = any(str(effect.get("target", "")).startswith("chosen_self_pokemon") for effect in rule.get("effects", []))
+                candidates = self._in_play(player) if targets_self else [None]
+                for target in candidates:
+                    action = {
+                        "type": "activate_ability", "sourceUid": pokemon["uid"],
+                        "ruleId": rule["id"], "coverage": "complete",
+                        "label": f"Ability: {rule['sourceName']}",
+                    }
+                    if target:
+                        action["targetUid"] = target["uid"]
+                        action["label"] += f" → {target['card']['name']}"
+                    actions.append(action)
+        if self.stadium:
+            for rule in (self.stadium["card"].get("ruleProgram") or {}).get("rules", []):
+                if rule.get("trigger") != "activate_ability" or rule["id"] in player["abilitiesUsed"]:
+                    continue
+                requires_hand_energy = any(
+                    effect.get("op") == "discard_energy" and effect.get("target") == "self.hand"
+                    for effect in rule.get("effects", [])
+                )
+                if requires_hand_energy and not any(_is_energy(item) for item in player["hand"]):
+                    continue
+                if executable_effects(
+                    self.stadium["card"]["ruleProgram"], rule["id"],
+                    self._rule_context(player_index, source=self.stadium), seed=self.seed,
+                ):
+                    actions.append({
+                        "type": "activate_ability", "sourceUid": self.stadium["uid"],
+                        "ruleId": rule["id"], "coverage": "complete",
+                        "label": f"Stadium: {rule['sourceName']}",
+                    })
         return actions
 
     def apply(self, action: dict[str, Any]) -> None:
         self._commit_clock()
         if self.winner is not None:
+            return
+        if action.get("type") == "timeout":
+            self.clock_seconds[0] = 0
+            self.winner = 1
+            self.reason = "time_expired"
+            self.phase = "finished"
+            self.clock_owner = None
+            self.log.append(f"{self.players[0]['name']} ran out of time and loses.")
             return
         if self.phase == "playing" and self.current_player != 0 and self.pending_promotion != 0:
             raise ValueError("Wait for the opponent's turn to finish")
@@ -704,8 +1499,14 @@ class ArenaSession:
             self._retreat(player, str(action["targetUid"]))
         elif kind == "play_trainer":
             self._play_trainer(0, str(action["cardUid"]), action.get("targetUid"))
+        elif kind == "play_stadium":
+            self._play_stadium(0, str(action["cardUid"]), str(action["ruleId"]))
+        elif kind == "attach_tool":
+            self._attach_tool(0, str(action["cardUid"]), str(action["targetUid"]), str(action["ruleId"]))
+        elif kind == "activate_ability":
+            self._activate_ability(0, str(action["sourceUid"]), str(action["ruleId"]), action.get("targetUid"))
         elif kind == "attack":
-            self._attack(0, int(action["attackIndex"]))
+            self._attack(0, action)
             self._finish_turn()
         elif kind == "promote":
             self._promote(0, str(action["targetUid"]))
@@ -734,18 +1535,21 @@ class ArenaSession:
             if energy and ai["active"]:
                 self._attach(ai, energy["uid"], ai["active"]["uid"])
         active = ai["active"]
-        affordable = [] if active is None else [
-            (index, attack) for index, attack in enumerate(active["card"]["attacks"])
-            if _can_pay(list(attack.get("cost") or []), active["energy"])
-        ]
+        attack_actions = [action for action in self.legal_actions(1) if action["type"] == "attack"]
         restricted = first_turn_restricted(
             player_index=1,
             first_player=self.first_player,
             turns_taken=ai["turnsTaken"],
         )
-        if affordable and not restricted:
-            attack_index, _ = max(affordable, key=lambda item: (_printed_damage(item[1]), item[1].get("name", "")))
-            self._attack(1, attack_index)
+        if attack_actions:
+            attack_action = max(
+                attack_actions,
+                key=lambda item: (
+                    _printed_damage(active["card"]["attacks"][int(item["attackIndex"])]),
+                    active["card"]["attacks"][int(item["attackIndex"])].get("name", ""),
+                ),
+            )
+            self._attack(1, attack_action)
         elif restricted:
             self.log.append(f"{ai['name']} cannot attack on the first player's first turn.")
         else:
@@ -780,7 +1584,7 @@ class ArenaSession:
             },
             "turn": self.turn_number,
             "isPlayerTurn": (self.phase in SETUP_PHASES or self.current_player == 0 or self.pending_promotion == 0) and self.winner is None,
-            "winner": None if self.winner is None else ("player" if self.winner == 0 else "opponent"),
+            "winner": None if self.winner is None else ("player" if self.winner == 0 else ("opponent" if self.winner == 1 else "tie")),
             "reason": self.reason,
             "clocks": {
                 "initialMs": MATCH_CLOCK_SECONDS * 1000,
@@ -790,14 +1594,18 @@ class ArenaSession:
             },
             "player": self._public_player(player, reveal_hand=True),
             "opponent": self._public_player(opponent, reveal_hand=False),
+            "stadium": None if self.stadium is None else _card_view(self.stadium),
             "legalActions": self.legal_actions(0),
             "log": self.log[-20:],
+            "ruleTrace": self.rule_trace[-30:],
             "ruleCoverage": list(RULE_COVERAGE),
             "limitations": [
-                "Arena 0.2 executes the official pregame sequence plus core turns, Energy, evolution, retreat, attacks, Weakness, Resistance, Knock Outs, Prizes, and win conditions.",
+                "Arena 0.4 executes the official pregame sequence and loads the latest current-source AI-passed rule program for every processed card.",
                 "The opponent uses a deterministic setup-and-attack policy; it does not search future turns.",
-                "Only simple draw Trainers, Professor's Research, Boss's Orders, and exact draw attack text execute. An attack with other text is labeled base damage only; the omitted effect is never presented as executed.",
-                "Special Conditions and Pokémon Checkup are not executable yet because no supported card program can currently create those states.",
+                "Every executed compiled rule records its immutable version, rule ID, operations, review status, and outcome in the match trace. Unprocessed cards explicitly fall back to printed attack damage only.",
+                "Compiled choices currently use deterministic Arena policy unless the legal action contains an explicit target. The choice protocol will become fully interactive without changing rule identities.",
+                "Special Conditions can be created and cleared by card programs; the between-turn Pokémon Checkup sequence is the remaining universal-rules gap.",
+                "A simultaneous final-Prize result is identified as requiring Sudden Death; automatically starting the one-Prize rematch is not implemented yet.",
                 "Sessions are local memory and end when the application server restarts.",
             ],
         }
@@ -855,3 +1663,28 @@ def apply_arena_action(session_id: str, payload: dict[str, Any]) -> dict[str, An
             raise ValueError("Arena session was not found or the server restarted")
         session.apply(payload)
         return session.public_state()
+
+
+def report_arena_rule(session_id: str, payload: dict[str, Any], url: str | None = None) -> dict[str, Any]:
+    from .rule_reviews import report_rule_problem
+
+    trace_id = int(payload["traceId"])
+    with _SESSION_LOCK:
+        session = _SESSIONS.get(session_id)
+        if session is None:
+            raise ValueError("Arena session was not found or the server restarted")
+        trace = next((item for item in session.rule_trace if item["traceId"] == trace_id), None)
+        if trace is None:
+            raise ValueError("That rule execution is no longer in the match trace")
+        return report_rule_problem(
+            rule_version_id=trace["ruleVersionId"],
+            card_id=trace["cardId"],
+            rule_id=trace["ruleId"],
+            arena_version=ARENA_VERSION,
+            session_id=session_id,
+            trace=trace,
+            reason=str(payload.get("reason") or "Incorrect card behavior"),
+            detail=str(payload.get("detail") or ""),
+            reporter=str(payload.get("reporter") or "arena-player"),
+            url=url,
+        )

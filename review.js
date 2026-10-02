@@ -60,6 +60,7 @@ function renderQueue(items) {
           <span class="status-pill">${escapeHtml(combinedStatus(item))}</span>
         </div>
         <div class="review-checks"><span class="${item.ai_status === 'passed' ? 'passed' : 'failed'}">AI checks: ${escapeHtml(item.ai_status)}</span><span class="${item.manual_status === 'approved' ? 'passed' : item.manual_status === 'rejected' ? 'failed' : ''}">Human review: ${escapeHtml(item.manual_status)}</span></div>
+        ${Number(item.open_report_count) ? `<div class="check-errors"><strong>${Number(item.open_report_count)} Arena behavior flag${Number(item.open_report_count) === 1 ? '' : 's'}</strong><p>This exact executable version was flagged during play and needs correction or dismissal.</p><ul>${item.open_reports.map(report => `<li>${escapeHtml(report.ruleId || 'card rule')}: ${escapeHtml(report.trace?.summary || report.reason)}${report.detail ? ` — ${escapeHtml(report.detail)}` : ''}</li>`).join('')}</ul></div>` : ''}
         <div class="source-text">${escapeHtml(sourceText(item))}</div>
         ${item.automated_checks.errors?.length ? `<div class="check-errors"><strong>Automated check issues</strong><ul>${item.automated_checks.errors.map(error => `<li>${escapeHtml(error)}</li>`).join('')}</ul></div>` : ''}
         <details class="program-details"><summary>Executable JSON · ${item.automated_checks.ruleCount} rules · ${item.automated_checks.operationCount} operations</summary><pre>${escapeHtml(JSON.stringify(item.program, null, 2))}</pre></details>

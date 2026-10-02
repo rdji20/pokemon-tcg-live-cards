@@ -4,7 +4,7 @@
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <meta name="description" content="Play a Standard Pokémon TCG deck against a versioned local opponent.">
-  <title>Arena · Pokémon TCG Live Cards</title>
+  <title>Arena | Pokémon TCG Live Cards</title>
   <link rel="icon" href="favicon.svg" type="image/svg+xml">
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
@@ -36,7 +36,7 @@
         <h1>Play the deck before you buy it.</h1>
         <p>Use any saved Standard deck against a deterministic sparring opponent. The opponent is simple; the rules it claims to support are enforced by the server.</p>
       </div>
-      <div class="arena-versions" aria-label="Arena versions"><span>arena-0.3.0</span><span>core-0.2.1</span><span>simple-ai-0.1.0</span></div>
+      <div class="arena-versions" aria-label="Arena versions"><span>arena-0.4.0</span><span>core-0.2.1</span><span>simple-ai-0.1.0</span></div>
     </section>
 
     <section class="arena-lobby" id="arenaLobby" aria-labelledby="lobbyTitle">
@@ -59,7 +59,7 @@
         <header class="game-hud">
           <div class="game-identity">
             <span class="game-ball" aria-hidden="true"><i></i></span>
-            <div><strong id="gameTitle">Arena match</strong><span>arena-0.3.0 · core-0.2.1 · simple-ai-0.1.0</span></div>
+            <div><strong id="gameTitle">Arena match</strong><span>arena-0.4.0 / core-0.2.1 / simple-ai-0.1.0</span></div>
           </div>
           <div class="turn-status"><strong id="turnStatus">Your turn</strong><span id="turnNumber">Turn 1</span></div>
           <div class="game-controls">
@@ -100,6 +100,7 @@
           <div class="battle-line">
             <span class="battle-mark">VS</span>
             <div><strong id="battlePhase">Main phase</strong><p id="battleMessage">Choose an action.</p></div>
+            <div class="stadium-zone" id="stadiumZone" aria-label="Stadium zone"></div>
           </div>
 
           <section class="field-side player-side" aria-label="Your field">
@@ -133,6 +134,7 @@
           <summary>Match details</summary>
           <div class="match-drawer-content">
             <section class="battle-log"><h3>Battle log</h3><ol id="battleLog"></ol></section>
+            <section class="rule-trace"><h3>Executed card rules</h3><div id="ruleTrace"></div></section>
             <section class="coverage-note"><h3>Rules coverage</h3><ul id="arenaLimitations"></ul></section>
           </div>
         </details>
@@ -140,8 +142,8 @@
     </section>
   </main>
 
-  <footer><span>Pokémon TCG Live Cards</span><p>Build · play · improve</p></footer>
-  <script src="components.js?v=3" defer></script>
-  <script src="arena.js?v=7" defer></script>
+  <footer><span>Pokémon TCG Live Cards</span><p>Build / play / improve</p></footer>
+  <script src="components.js?v=4" defer></script>
+  <script src="arena.js?v=8" defer></script>
 </body>
 </html>

@@ -9,7 +9,7 @@ import psycopg
 from psycopg.rows import dict_row
 from psycopg.types.json import Jsonb
 
-from .rule_engine import validate_program
+from .rule_engine import program_hash, validate_program
 
 
 def _programs_in_file(path: Path) -> list[dict[str, Any]]:
@@ -34,17 +34,50 @@ def import_program_directory(
             checks = validate_program(program, card[0] if card else None)
             status = "passed" if checks["passed"] else "failed"
             generated = program.get("generatedBy", {})
+            immutable_hash = program_hash(program)
+            exact = connection.execute(
+                """
+                SELECT id
+                FROM card_rule_versions
+                WHERE card_id = %s AND source_text_hash = %s
+                  AND schema_version = %s AND program = %s
+                ORDER BY created_at DESC
+                LIMIT 1
+                """,
+                (
+                    program["cardId"], program["sourceTextHash"],
+                    program["schemaVersion"], Jsonb(program),
+                ),
+            ).fetchone()
+            if exact:
+                connection.execute(
+                    "UPDATE card_rule_versions SET program_hash = %s WHERE id = %s",
+                    (immutable_hash, exact[0]),
+                )
+            previous = connection.execute(
+                """
+                SELECT id
+                FROM card_rule_versions
+                WHERE card_id = %s AND source_text_hash = %s
+                  AND schema_version = %s AND program_hash <> %s
+                ORDER BY created_at DESC
+                LIMIT 1
+                """,
+                (
+                    program["cardId"], program["sourceTextHash"],
+                    program["schemaVersion"], immutable_hash,
+                ),
+            ).fetchone()
             connection.execute(
                 """
                 INSERT INTO card_rule_versions (
                     card_id, source_text_hash, schema_version, ai_provider,
-                    ai_model, ai_response_id, program, automated_checks, ai_status
-                ) VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s)
-                ON CONFLICT (
-                    card_id, source_text_hash, schema_version, ai_provider, ai_model
-                ) DO UPDATE SET
+                    ai_model, ai_response_id, program, program_hash, supersedes_id,
+                    automated_checks, ai_status
+                ) VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s)
+                ON CONFLICT (card_id, source_text_hash, schema_version, program_hash)
+                DO UPDATE SET
                     ai_response_id = EXCLUDED.ai_response_id,
-                    program = EXCLUDED.program,
                     automated_checks = EXCLUDED.automated_checks,
                     ai_status = EXCLUDED.ai_status,
                     updated_at = now()
@@ -53,7 +86,8 @@ def import_program_directory(
                     program["cardId"], program["sourceTextHash"],
                     program["schemaVersion"], generated.get("provider", "unknown"),
                     generated.get("model", "unknown"), generated.get("responseId"),
-                    Jsonb(program), Jsonb(checks), status,
+                    Jsonb(program), immutable_hash, previous[0] if previous else None,
+                    Jsonb(checks), status,
                 ),
             )
             imported += int(checks["passed"])
@@ -121,6 +155,22 @@ def list_rule_reviews(
                    rv.ai_model, rv.ai_status, rv.manual_status, rv.program,
                    rv.automated_checks, rv.reviewer, rv.review_note,
                    rv.reviewed_at, rv.created_at,
+                   (
+                       SELECT count(*) FROM card_rule_reports report
+                       WHERE report.rule_version_id = rv.id AND report.status = 'open'
+                   ) AS open_report_count,
+                   COALESCE((
+                       SELECT jsonb_agg(jsonb_build_object(
+                           'id', report.id,
+                           'ruleId', report.rule_id,
+                           'reason', report.reason,
+                           'detail', report.detail,
+                           'trace', report.trace,
+                           'createdAt', report.created_at
+                       ) ORDER BY report.created_at DESC)
+                       FROM card_rule_reports report
+                       WHERE report.rule_version_id = rv.id AND report.status = 'open'
+                   ), '[]'::jsonb) AS open_reports,
                    c.name, c.set_name, c.number, c.supertype, c.image_small,
                    c.standard_status, c.raw_data
             FROM card_rule_versions rv
@@ -181,4 +231,69 @@ def decide_rule_review(
     result = dict(row)
     result["id"] = str(result["id"])
     result["reviewed_at"] = result["reviewed_at"].isoformat()
+    return result
+
+
+def report_rule_problem(
+    *,
+    rule_version_id: str,
+    card_id: str,
+    rule_id: str | None,
+    arena_version: str,
+    session_id: str,
+    trace: dict[str, Any],
+    reason: str,
+    detail: str = "",
+    reporter: str = "arena-player",
+    url: str | None = None,
+) -> dict[str, Any]:
+    from .database import database_url
+
+    UUID(rule_version_id)
+    UUID(session_id)
+    reason = reason.strip()[:120]
+    detail = detail.strip()[:2000]
+    reporter = reporter.strip()[:80] or "arena-player"
+    if not reason:
+        raise ValueError("A reason is required")
+    with psycopg.connect(database_url(url), row_factory=dict_row) as connection:
+        existing = connection.execute(
+            """
+            SELECT id, card_id, rule_id, status, created_at
+            FROM card_rule_reports
+            WHERE session_id = %s AND rule_version_id = %s
+              AND rule_id IS NOT DISTINCT FROM %s
+              AND trace ->> 'traceId' = %s
+            ORDER BY created_at DESC
+            LIMIT 1
+            """,
+            (session_id, rule_version_id, rule_id, str(trace.get("traceId"))),
+        ).fetchone()
+        if existing:
+            result = dict(existing)
+            result["id"] = str(result["id"])
+            result["created_at"] = result["created_at"].isoformat()
+            return result
+        row = connection.execute(
+            """
+            INSERT INTO card_rule_reports (
+                rule_version_id, card_id, rule_id, arena_version, session_id,
+                trace, reason, detail, reporter
+            )
+            SELECT rv.id, rv.card_id, %s, %s, %s, %s, %s, %s, %s
+            FROM card_rule_versions rv
+            WHERE rv.id = %s AND rv.card_id = %s
+            RETURNING id, card_id, rule_id, status, created_at
+            """,
+            (
+                rule_id, arena_version, session_id, Jsonb(trace), reason,
+                detail, reporter, rule_version_id, card_id,
+            ),
+        ).fetchone()
+        if row is None:
+            raise ValueError("Rule version was not found for that card")
+        connection.commit()
+    result = dict(row)
+    result["id"] = str(result["id"])
+    result["created_at"] = result["created_at"].isoformat()
     return result

@@ -5,12 +5,12 @@ const arenaEl = Object.fromEntries([
   'arenaSeed', 'startMatchButton', 'lobbyMessage', 'gameShell', 'turnStatus',
   'turnNumber', 'newMatchButton', 'gameTable', 'fullscreenButton', 'fullscreenLabel',
   'endTurnButton', 'contextMenu', 'contextTitle', 'contextActions', 'contextCancel',
-  'battlePhase', 'setupOverlay', 'setupCoin', 'setupStep', 'setupTitle',
+  'battlePhase', 'stadiumZone', 'setupOverlay', 'setupCoin', 'setupStep', 'setupTitle',
   'setupText', 'setupActionList', 'setupFacts', 'opponentName', 'opponentCounts', 'opponentHand',
   'opponentBench', 'opponentPrizes', 'opponentActive', 'opponentDeck', 'opponentClock',
   'playerName', 'playerCounts', 'playerBench', 'playerPrizes', 'playerActive',
   'playerDeckStack', 'playerHand', 'handCount', 'battleMessage', 'playerClock',
-  'battleLog', 'arenaLimitations'
+  'battleLog', 'ruleTrace', 'arenaLimitations'
 ].map(id => [id, document.getElementById(id)]));
 
 function escapeHtml(value = '') {
@@ -80,7 +80,7 @@ function renderClocks() {
 function renderPlayer(prefix, player, revealHand = false) {
   const concealBoard = arenaState.game?.status === 'setup';
   arenaEl[`${prefix}Name`].textContent = player.name;
-  arenaEl[`${prefix}Counts`].textContent = `${player.deckCount} deck · ${player.handCount} hand · ${player.discardCount} discard`;
+  arenaEl[`${prefix}Counts`].textContent = `${player.deckCount} deck / ${player.handCount} hand / ${player.discardCount} discard`;
   arenaEl[`${prefix}Bench`].innerHTML = concealBoard ? setupBenchSlots(player.bench.length) : benchSlots(player.bench);
   arenaEl[`${prefix}Active`].innerHTML = concealBoard && player.active ? setupCardBack('active') : window.TcgComponents.battlePokemon(player.active, 'active');
   arenaEl[`${prefix}Prizes`].innerHTML = prizeCards(player.prizesRemaining);
@@ -95,7 +95,7 @@ function renderPlayer(prefix, player, revealHand = false) {
 }
 
 function actionGroup(type) {
-  return ({ call_coin: 'Coin flip', choose_turn_order: 'Turn order', mulligan_draw: 'Mulligan', choose_active: 'Active', setup_bench: 'Setup Bench', finish_setup: 'Setup', attach: 'Energy', bench: 'Bench', evolve: 'Evolution', play_trainer: 'Trainer', retreat: 'Retreat', promote: 'Promotion', attack: 'Attack', end_turn: 'Turn' })[type] || 'Other';
+  return ({ call_coin: 'Coin flip', choose_turn_order: 'Turn order', mulligan_draw: 'Mulligan', choose_active: 'Active', setup_bench: 'Setup Bench', finish_setup: 'Setup', attach: 'Energy', bench: 'Bench', evolve: 'Evolution', play_trainer: 'Trainer', play_stadium: 'Stadium', attach_tool: 'Pokémon Tool', activate_ability: 'Ability', retreat: 'Retreat', promote: 'Promotion', attack: 'Attack', end_turn: 'Turn' })[type] || 'Other';
 }
 
 function actionMarkup(actions, includeGroups = true) {
@@ -132,7 +132,7 @@ function renderSetup(game) {
   const active = game.status === 'setup' && ['coin_call', 'choose_turn_order', 'mulligan_draw'].includes(game.phase);
   arenaEl.setupOverlay.hidden = !active;
   if (!active) return;
-  arenaEl.setupStep.textContent = `Match setup · ${String(game.phase).replaceAll('_', ' ')}`;
+  arenaEl.setupStep.textContent = `Match setup / ${String(game.phase).replaceAll('_', ' ')}`;
   arenaEl.setupTitle.textContent = game.prompt.title;
   arenaEl.setupText.textContent = game.prompt.text;
   arenaEl.setupActionList.innerHTML = setupActionMarkup(game);
@@ -143,7 +143,7 @@ function renderSetup(game) {
   if (game.setup.coinResult) facts.push(`Result: ${game.setup.coinResult}`);
   if (game.setup.firstPlayer) facts.push(`${game.setup.firstPlayer === 'player' ? 'You go' : 'Opponent goes'} first`);
   if (game.setup.playerMulligans || game.setup.opponentMulligans) facts.push(`Mulligans: you ${game.setup.playerMulligans}, opponent ${game.setup.opponentMulligans}`);
-  arenaEl.setupFacts.textContent = facts.join(' · ');
+  arenaEl.setupFacts.textContent = facts.join(' / ');
 }
 
 function renderGame(game) {
@@ -158,17 +158,20 @@ function renderGame(game) {
   arenaEl.arenaStatus.textContent = game.status === 'finished' ? 'Match finished' : (game.status === 'setup' ? 'Match setup' : `Turn ${game.turn}`);
   arenaEl.turnNumber.textContent = game.status === 'setup' ? 'Setup' : `Turn ${game.turn}`;
   arenaEl.turnStatus.textContent = game.status === 'finished'
-    ? (game.winner === 'player' ? 'You won' : 'Opponent won')
+    ? (game.winner === 'player' ? 'You won' : (game.winner === 'opponent' ? 'Opponent won' : 'Sudden Death'))
     : (game.status === 'setup' ? 'Pregame' : (game.isPlayerTurn ? 'Your turn' : "Opponent's turn"));
   arenaEl.battlePhase.textContent = game.status === 'finished'
     ? 'Match complete'
     : (game.status === 'setup' ? game.prompt.title : (game.isPlayerTurn ? 'Main phase' : 'Opponent thinking'));
   arenaEl.battleMessage.textContent = game.status === 'finished'
-    ? `${game.winner === 'player' ? 'Victory' : 'Defeat'} · ${String(game.reason || '').replace('_', ' ')}`
+    ? `${game.winner === 'player' ? 'Victory' : (game.winner === 'opponent' ? 'Defeat' : 'Tie')} / ${String(game.reason || '').replaceAll('_', ' ')}`
     : (game.status === 'setup' ? game.prompt.text : 'Select or drag a card, or click your Active Pokémon to attack.');
   renderPlayer('opponent', game.opponent);
   renderPlayer('player', game.player, true);
   renderSetup(game);
+  arenaEl.stadiumZone.innerHTML = game.stadium
+    ? `<button type="button" data-stadium-uid="${escapeHtml(game.stadium.uid)}"><img src="${escapeHtml(game.stadium.image || '')}" alt="${escapeHtml(game.stadium.name)} Stadium"><span>${escapeHtml(game.stadium.name)}</span></button>`
+    : '<span>Stadium</span>';
 
   arenaEl.contextMenu.hidden = true;
   const primaryIndex = game.legalActions.findIndex(action => action.type === 'end_turn' || action.type === 'finish_setup');
@@ -184,6 +187,13 @@ function renderGame(game) {
     arenaEl.battleMessage.textContent = 'Choose a Benched Pokémon to move into the Active Spot.';
   }
   arenaEl.battleLog.innerHTML = [...game.log].reverse().map(item => `<li>${escapeHtml(item)}</li>`).join('');
+  arenaEl.ruleTrace.innerHTML = [...(game.ruleTrace || [])].reverse().map(item => `
+    <article class="trace-entry" title="${escapeHtml(item.ruleKey || item.ruleId)}">
+      <div><strong>${escapeHtml(item.cardName)}</strong><span>${escapeHtml(item.ruleId)} / ${escapeHtml(item.review.manual)} review</span></div>
+      <p>${escapeHtml(item.summary)}</p>
+      <button type="button" data-flag-trace="${item.traceId}">Flag incorrect</button>
+    </article>
+  `).join('') || '<p class="empty-trace">No compiled card rule has executed yet.</p>';
   arenaEl.arenaLimitations.innerHTML = [
     ...(game.ruleCoverage || []).map(item => `${item.rule}: ${item.status} — ${item.detail}`),
     ...game.limitations,
@@ -245,6 +255,23 @@ async function submitAction(action) {
     document.querySelectorAll('[data-action-index]').forEach(item => { item.disabled = false; });
   } finally {
     arenaState.busy = false;
+  }
+}
+
+async function flagRule(event) {
+  const button = event.target.closest('[data-flag-trace]');
+  if (!button || !arenaState.game || button.disabled) return;
+  button.disabled = true;
+  try {
+    await arenaApi(`/api/arena/sessions/${arenaState.game.sessionId}/rule-reports`, {
+      method: 'POST',
+      body: JSON.stringify({ traceId: Number(button.dataset.flagTrace), reason: 'Incorrect card behavior' }),
+    });
+    button.textContent = 'Flagged for correction';
+    arenaEl.battleMessage.textContent = 'That exact rule version and game event were saved for correction.';
+  } catch (error) {
+    button.disabled = false;
+    arenaEl.battleMessage.textContent = error.message;
   }
 }
 
@@ -321,7 +348,9 @@ function selectPokemon(event) {
     if (action.targetUid !== targetUid) return false;
     if (arenaState.selectedCardUid) return action.cardUid === arenaState.selectedCardUid;
     if (action.cardUid) return false;
-    return action.type === 'promote' || arenaState.selectedSource === 'active';
+    if (action.type === 'promote') return true;
+    const selectedActive = arenaState.selectedSource === arenaState.game.player.active?.uid;
+    return action.sourceUid === arenaState.selectedSource || (selectedActive && ['attack', 'retreat'].includes(action.type));
   });
   if (matching.length === 1) {
     submitAction(matching[0]);
@@ -329,16 +358,28 @@ function selectPokemon(event) {
   }
   if (arenaState.selectedCardUid) return;
   const activeCard = event.currentTarget === arenaEl.playerActive || pokemon.closest('#playerActive');
-  if (!activeCard) return;
+  const abilities = indexedActions(action => action.type === 'activate_ability' && action.sourceUid === targetUid);
+  if (!activeCard && !abilities.length) return;
   clearInteraction();
-  arenaState.selectedSource = 'active';
-  const attacks = indexedActions(action => action.type === 'attack');
-  const retreats = indexedActions(action => action.type === 'retreat');
+  arenaState.selectedSource = targetUid;
+  const attacks = activeCard ? indexedActions(action => action.type === 'attack') : [];
+  const retreats = activeCard ? indexedActions(action => action.type === 'retreat') : [];
+  abilities.filter(item => item.action.targetUid).forEach(item => markTarget(item.action.targetUid));
   retreats.forEach(item => markTarget(item.action.targetUid));
-  showContext(pokemon.querySelector('strong')?.textContent || 'Active Pokémon', attacks);
+  showContext(pokemon.querySelector('strong')?.textContent || 'Pokémon', [...attacks, ...abilities.filter(item => !item.action.targetUid)]);
   arenaEl.battleMessage.textContent = attacks.length && retreats.length
     ? 'Choose an attack, or click a glowing Benched Pokémon to retreat.'
-    : (attacks.length ? 'Choose an attack.' : 'Click a glowing Benched Pokémon to retreat.');
+    : (attacks.length || abilities.length ? 'Choose an attack or Ability.' : 'Click a glowing Benched Pokémon to retreat.');
+}
+
+function selectStadium(event) {
+  const button = event.target.closest('[data-stadium-uid]');
+  if (!button || !arenaState.game || arenaState.busy) return;
+  clearInteraction();
+  arenaState.selectedSource = button.dataset.stadiumUid;
+  const abilities = indexedActions(action => action.type === 'activate_ability' && action.sourceUid === button.dataset.stadiumUid);
+  showContext(arenaState.game.stadium?.name || 'Stadium', abilities);
+  arenaEl.battleMessage.textContent = abilities.length ? 'Choose the Stadium effect.' : 'This Stadium has no available action right now.';
 }
 
 function selectBenchZone(event) {
@@ -432,6 +473,8 @@ arenaEl.playerHand.addEventListener('keydown', event => {
 });
 arenaEl.playerActive.addEventListener('click', selectPokemon);
 arenaEl.playerBench.addEventListener('click', selectBenchZone);
+arenaEl.stadiumZone.addEventListener('click', selectStadium);
+arenaEl.ruleTrace.addEventListener('click', flagRule);
 arenaEl.opponentBench.addEventListener('click', selectPokemon);
 [arenaEl.playerActive, arenaEl.playerBench, arenaEl.opponentBench].forEach(target => {
   target.addEventListener('dragover', allowCardDrop);

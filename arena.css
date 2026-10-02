@@ -149,6 +149,11 @@
 .battle-line > div { min-width: 150px; text-align: center; }
 .battle-line strong { display: block; font-size: 10px; font-weight: 500; }
 .battle-line p { max-width: 350px; margin: 2px auto 0; overflow: hidden; color: #9eabb4; font-size: 8px; text-overflow: ellipsis; white-space: nowrap; }
+.stadium-zone { min-width: 78px !important; position: absolute; right: 18px; }
+.stadium-zone > span { color: #73818b; font-size: 8px; text-transform: uppercase; }
+.stadium-zone button { width: 76px; height: 40px; padding: 0; display: flex; align-items: center; gap: 5px; overflow: hidden; border: 1px solid #8b99a3; border-radius: 4px; color: #e4e9ec; background: #182229; }
+.stadium-zone img { width: 27px; height: 38px; flex: 0 0 27px; object-fit: cover; object-position: top; }
+.stadium-zone button span { overflow: hidden; font-size: 7px; line-height: 1.15; text-align: left; text-overflow: ellipsis; }
 
 .hand-zone { min-height: 200px; padding: 12px 18px 16px; border-top: 1px solid rgba(255,255,255,.08); background: rgba(8,13,17,.66); }
 .hand-heading { display: flex; justify-content: space-between; }
@@ -175,14 +180,23 @@
 .context-actions .context-play_trainer { border-color: #d2b13b; color: #172027; background: #efc944; }
 .context-cancel { width: 28px; height: 28px; position: absolute; top: 50%; right: 10px; border: 0; color: #aeb8c0; background: transparent; font-size: 20px; transform: translateY(-50%); }
 
-.match-drawer { width: min(620px, calc(100% - 32px)); position: absolute; z-index: 8; right: 16px; bottom: 18px; }
+.match-drawer { width: min(940px, calc(100% - 32px)); position: absolute; z-index: 8; right: 16px; bottom: 18px; }
 .match-drawer summary { width: max-content; margin-left: auto; padding: 7px 10px; cursor: pointer; list-style: none; border: 1px solid #46515a; border-radius: 5px; color: #cbd3d9; background: rgba(17,24,29,.94); font-size: 9px; }
 .match-drawer summary::-webkit-details-marker { display: none; }
 .match-drawer[open] summary { margin-bottom: 6px; }
-.match-drawer-content { max-height: 300px; padding: 16px; display: grid; grid-template-columns: 1fr 1fr; gap: 20px; overflow-y: auto; border: 1px solid #46515a; border-radius: 8px; background: rgba(17,24,29,.97); box-shadow: 0 15px 36px rgba(0,0,0,.36); }
+.match-drawer-content { max-height: 300px; padding: 16px; display: grid; grid-template-columns: 1fr 1.2fr 1fr; gap: 20px; overflow-y: auto; border: 1px solid #46515a; border-radius: 8px; background: rgba(17,24,29,.97); box-shadow: 0 15px 36px rgba(0,0,0,.36); }
 .match-drawer h3 { margin: 0 0 10px; font-size: 11px; font-weight: 500; }
 .battle-log ol, .coverage-note ul { margin: 0; padding-left: 18px; }
 .battle-log li, .coverage-note li { margin-bottom: 6px; color: #9eabb4; font-size: 9px; line-height: 1.4; }
+.rule-trace { min-width: 0; }
+.trace-entry { padding: 8px 0; border-bottom: 1px solid #34414a; }
+.trace-entry:first-child { padding-top: 0; }
+.trace-entry > div { display: flex; align-items: baseline; justify-content: space-between; gap: 10px; }
+.trace-entry strong { overflow: hidden; font-size: 10px; text-overflow: ellipsis; white-space: nowrap; }
+.trace-entry span { flex: 0 0 auto; color: #8f9ca5; font-size: 8px; }
+.trace-entry p, .empty-trace { margin: 4px 0 7px; color: #aeb8c0; font-size: 9px; line-height: 1.35; }
+.trace-entry button { padding: 5px 8px; border: 1px solid #bf4a43; border-radius: 4px; color: #f5f7f8; background: #8f332e; font-size: 8px; font-weight: 700; }
+.trace-entry button:disabled { border-color: #59666f; color: #b8c2c9; background: #35414a; }
 
 @keyframes target-pulse { to { box-shadow: 0 0 34px rgba(239,201,68,.88); } }
 @keyframes playable-card { to { transform: translateY(-8px); filter: drop-shadow(0 0 18px rgba(239,201,68,1)); } }

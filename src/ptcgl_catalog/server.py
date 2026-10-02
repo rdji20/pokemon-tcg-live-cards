@@ -21,14 +21,14 @@ import psycopg
 
 from .catalog import CatalogError, build_catalog
 from .database import (
-    catalog_status, database_url, get_card_effects, get_ruleset,
+    apply_migrations, catalog_status, database_url, get_card_effects, get_ruleset,
     import_catalog, list_sets, search_cards,
 )
 from .decks import create_deck, export_deck, get_deck, list_decks, validate_payload
 from .optimization import optimize_deck
 from .simulation import simulate_match
 from .rule_reviews import decide_rule_review, list_rule_reviews, review_coverage
-from .arena import apply_arena_action, get_arena_session, start_arena_session
+from .arena import apply_arena_action, get_arena_session, report_arena_rule, start_arena_session
 
 
 def create_review_token(password: str, reviewer: str, *, now: int | None = None) -> str:
@@ -273,6 +273,16 @@ class CatalogRequestHandler(SimpleHTTPRequestHandler):
             except (KeyError, ValueError, json.JSONDecodeError) as exc:
                 self._json_response(HTTPStatus.BAD_REQUEST, {"error": str(exc)})
             return
+        if path.startswith("/api/arena/sessions/") and path.endswith("/rule-reports"):
+            session_id = path.removeprefix("/api/arena/sessions/").removesuffix("/rule-reports").strip("/")
+            try:
+                self._json_response(
+                    HTTPStatus.CREATED,
+                    {"report": report_arena_rule(session_id, self._request_json(), self.server.database_url)},
+                )
+            except (KeyError, ValueError, json.JSONDecodeError, psycopg.Error) as exc:
+                self._json_response(HTTPStatus.BAD_REQUEST, {"error": str(exc)})
+            return
         if path == "/api/review/login":
             try:
                 payload = self._request_json()
@@ -394,6 +404,10 @@ def run_server(
     migrations_dir: Path = Path("db/migrations"),
 ) -> None:
     project_dir = project_dir.resolve()
+    resolved_migrations = (project_dir / migrations_dir).resolve() if not migrations_dir.is_absolute() else migrations_dir
+    with psycopg.connect(database_url(database_url_value)) as connection:
+        apply_migrations(connection, resolved_migrations.parent / "init")
+        apply_migrations(connection, resolved_migrations)
     handler = partial(CatalogRequestHandler, directory=str(project_dir))
     server = CatalogHTTPServer(
         (host, port),
@@ -404,7 +418,7 @@ def run_server(
         ref=ref,
         policy_path=policy_path.resolve() if policy_path else None,
         database_url_value=database_url_value,
-        migrations_dir=(project_dir / migrations_dir).resolve() if not migrations_dir.is_absolute() else migrations_dir,
+        migrations_dir=resolved_migrations,
     )
     print(f"TCG Live Card Catalog running at http://{host}:{port}")
     print("Press Ctrl-C to stop")

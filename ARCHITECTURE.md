@@ -316,6 +316,31 @@ variables and are never committed.
   timer remains a separate future anti-stall mechanism until its exact current
   client behavior is documented and tested.
 
+### ADR-016: Execute immutable card programs through game events
+
+- Status: Accepted
+- Date: 2026-10-02
+- Decision: Processed card programs are active in Arena as soon as their
+  automated checks pass, independent of manual-review status. Identify every
+  program by a canonical hash and preserve corrected programs as new versions
+  linked to the version they supersede. Resolve card behavior from game
+  triggers, conditions, selectors, effects, and duration-scoped modifiers
+  instead of adding card-name branches. Record the exact program version,
+  rule ID, primitive operations, and outcome every time a compiled rule runs.
+- Reason: Card interactions apply across zones and events. For example, an
+  attack-damage prevention rule selected for a Pokémon must still apply when
+  that Pokémon is on the Bench and an attack targets the Bench. Event modifiers
+  express that interaction once; a card-specific conditional cannot scale to
+  the full catalog. Review confidence is evidence, not a switch that makes an
+  exploratory simulation playable.
+- Consequence: Manual approval remains the trusted state, but pending and
+  flagged versions can continue running with visible provenance. Arena users
+  can flag an exact execution without changing the live match. The flag enters
+  Rule Review with its captured trace so a later correction creates a new
+  immutable program and can be regression-tested against the reported event.
+  Explicit board targets are player choices; other compiled choices currently
+  use the deterministic Arena policy until the generic choice protocol lands.
+
 ## Open decisions
 
 - Python HTTP framework and API contract.
