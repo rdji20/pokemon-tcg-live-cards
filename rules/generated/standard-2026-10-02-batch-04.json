@@ -1,0 +1,233 @@
+[
+  {
+    "schemaVersion": 1,
+    "cardId": "me1-115",
+    "sourceTextHash": "dffa33b5a5bb7b61d4822ae50e42279a11f5436a311753a7f5ee5af06092cba1",
+    "generatedBy": {"provider": "openai-codex", "model": "gpt-5", "responseId": "", "generatedAt": "2026-10-02T14:19:51Z"},
+    "confidence": "high",
+    "rules": [
+      {
+        "id": "item-energy-switch", "sourceType": "trainer_rule", "sourceName": "Energy Switch", "trigger": "play_card", "cost": [], "conditions": [],
+        "effects": [
+          {"op": "move_energy", "target": "self.in_play", "amount": 1, "value": "Basic", "conditions": [], "parameters": [{"key": "source", "value": "chosen_self_pokemon"}, {"key": "destination", "value": "different_chosen_self_pokemon"}, {"key": "selection", "value": "player_choice"}]}
+        ]
+      },
+      {
+        "id": "rule-item-limit", "sourceType": "trainer_rule", "sourceName": "Item rule", "trigger": "continuous", "cost": [], "conditions": [],
+        "effects": [{"op": "create_modifier", "target": "self.turn.item_plays", "amount": 0, "value": "unlimited", "conditions": [], "parameters": [{"key": "duration", "value": "turn"}]}]
+      }
+    ],
+    "unsupportedText": [],
+    "notes": "Moves exactly one Basic Energy between two different Pokémon in play; the Item play rule remains unlimited during the player's turn."
+  },
+  {
+    "schemaVersion": 1,
+    "cardId": "me1-116",
+    "sourceTextHash": "6d6c357c85c1b7f68463c44a4e9b5816048204c4d1e3e6c6e8988db49da54e13",
+    "generatedBy": {"provider": "openai-codex", "model": "gpt-5", "responseId": "", "generatedAt": "2026-10-02T14:19:51Z"},
+    "confidence": "high",
+    "rules": [
+      {
+        "id": "item-fighting-gong", "sourceType": "trainer_rule", "sourceName": "Fighting Gong", "trigger": "play_card", "cost": [], "conditions": [],
+        "effects": [
+          {"op": "choose_cards", "target": "self.deck", "amount": 1, "value": "basic_fighting_energy_or_basic_fighting_pokemon", "conditions": [], "parameters": [{"key": "selection_id", "value": "fighting_gong_card"}, {"key": "reveal", "value": "true"}]},
+          {"op": "move_cards", "target": "self.hand", "amount": 1, "value": "selected", "conditions": [], "parameters": [{"key": "source", "value": "self.deck"}, {"key": "selection_id", "value": "fighting_gong_card"}]},
+          {"op": "shuffle_cards", "target": "self.deck", "amount": 0, "value": "all", "conditions": [], "parameters": []}
+        ]
+      },
+      {
+        "id": "rule-item-limit", "sourceType": "trainer_rule", "sourceName": "Item rule", "trigger": "continuous", "cost": [], "conditions": [],
+        "effects": [{"op": "create_modifier", "target": "self.turn.item_plays", "amount": 0, "value": "unlimited", "conditions": [], "parameters": [{"key": "duration", "value": "turn"}]}]
+      }
+    ],
+    "unsupportedText": [],
+    "notes": "The search filter is the union of Basic Fighting Energy and Basic Fighting Pokémon; the selected card is revealed before entering the hand, then the deck is shuffled."
+  },
+  {
+    "schemaVersion": 1,
+    "cardId": "me1-117",
+    "sourceTextHash": "be1931e18182315d950c72c126740a663b1f1acabd34049cd7d7c9c50ed15a22",
+    "generatedBy": {"provider": "openai-codex", "model": "gpt-5", "responseId": "", "generatedAt": "2026-10-02T14:19:51Z"},
+    "confidence": "high",
+    "rules": [
+      {
+        "id": "stadium-forest-of-vitality", "sourceType": "trainer_rule", "sourceName": "Forest of Vitality", "trigger": "continuous", "cost": [], "conditions": [],
+        "effects": [
+          {"op": "create_modifier", "target": "all_players.in_play.grass_pokemon.evolution_timing", "amount": 0, "value": "allow_same_turn", "conditions": [], "parameters": [{"key": "evolves_into_type", "value": "Grass"}, {"key": "exclude", "value": "players_first_turn"}, {"key": "duration", "value": "while_stadium_in_play"}]}
+        ]
+      },
+      {
+        "id": "rule-stadium", "sourceType": "trainer_rule", "sourceName": "Stadium rule", "trigger": "continuous", "cost": [], "conditions": [],
+        "effects": [
+          {"op": "create_modifier", "target": "self.turn.stadium_plays", "amount": 1, "value": "maximum", "conditions": [], "parameters": [{"key": "duration", "value": "turn"}]},
+          {"op": "create_modifier", "target": "game.stadium_slot", "amount": 1, "value": "replace_and_discard_previous", "conditions": [], "parameters": []},
+          {"op": "create_modifier", "target": "self.play_stadium.same_name_allowed", "amount": 0, "value": "false", "conditions": [], "parameters": [{"key": "compare_to", "value": "stadium_in_play"}]}
+        ]
+      }
+    ],
+    "unsupportedText": [],
+    "notes": "The evolution-timing exception applies symmetrically to both players, only from Grass Pokémon into Grass Pokémon, and never during that player's first turn."
+  },
+  {
+    "schemaVersion": 1,
+    "cardId": "me1-118",
+    "sourceTextHash": "3a852348f4c390fdfc067421915d9bb5c8d33593fad6a5f95425caed44f3f0c0",
+    "generatedBy": {"provider": "openai-codex", "model": "gpt-5", "responseId": "", "generatedAt": "2026-10-02T14:19:51Z"},
+    "confidence": "high",
+    "rules": [
+      {
+        "id": "item-iron-defender", "sourceType": "trainer_rule", "sourceName": "Iron Defender", "trigger": "play_card", "cost": [], "conditions": [],
+        "effects": [
+          {"op": "create_modifier", "target": "self.in_play.metal_pokemon.damage_taken_from_opponent_attacks", "amount": -30, "value": "add", "conditions": [], "parameters": [{"key": "duration", "value": "during_opponent_next_turn"}, {"key": "timing", "value": "after_weakness_resistance"}, {"key": "includes_future_pokemon", "value": "true"}]}
+        ]
+      },
+      {
+        "id": "rule-item-limit", "sourceType": "trainer_rule", "sourceName": "Item rule", "trigger": "continuous", "cost": [], "conditions": [],
+        "effects": [{"op": "create_modifier", "target": "self.turn.item_plays", "amount": 0, "value": "unlimited", "conditions": [], "parameters": [{"key": "duration", "value": "turn"}]}]
+      }
+    ],
+    "unsupportedText": [],
+    "notes": "The 30-damage reduction applies after Weakness and Resistance to every Metal Pokémon on the player's side during the opponent's next turn, including later entrants."
+  },
+  {
+    "schemaVersion": 1,
+    "cardId": "me1-119",
+    "sourceTextHash": "8f9da1f2930f8dd189d916991cec6521b31d2707b8f1d1e8f632e339122b4f73",
+    "generatedBy": {"provider": "openai-codex", "model": "gpt-5", "responseId": "", "generatedAt": "2026-10-02T14:19:51Z"},
+    "confidence": "high",
+    "rules": [
+      {
+        "id": "supporter-lillies-determination", "sourceType": "trainer_rule", "sourceName": "Lillie's Determination", "trigger": "play_card", "cost": [], "conditions": [],
+        "effects": [
+          {"op": "shuffle_zone_into_deck", "target": "self.hand", "amount": 0, "value": "all", "conditions": [], "parameters": [{"key": "destination", "value": "self.deck"}]},
+          {"op": "draw_cards", "target": "self", "amount": 8, "value": "", "conditions": [{"field": "self.prizes", "operator": "equals", "value": 6}], "parameters": []},
+          {"op": "draw_cards", "target": "self", "amount": 6, "value": "", "conditions": [{"field": "self.prizes", "operator": "not_equals", "value": 6}], "parameters": []}
+        ]
+      },
+      {
+        "id": "rule-supporter-limit", "sourceType": "trainer_rule", "sourceName": "Supporter rule", "trigger": "continuous", "cost": [], "conditions": [],
+        "effects": [{"op": "create_modifier", "target": "self.turn.supporter_plays", "amount": 1, "value": "maximum", "conditions": [], "parameters": [{"key": "duration", "value": "turn"}]}]
+      }
+    ],
+    "unsupportedText": [],
+    "notes": "The hand is shuffled into the deck before exactly one draw branch resolves: eight at exactly six remaining Prizes, otherwise six."
+  },
+  {
+    "schemaVersion": 1,
+    "cardId": "me1-12",
+    "sourceTextHash": "335c925ccdb50084714083274257be1c81bf7c88b65380a24a7c4315d2e163d7",
+    "generatedBy": {"provider": "openai-codex", "model": "gpt-5", "responseId": "", "generatedAt": "2026-10-02T14:19:51Z"},
+    "confidence": "high",
+    "rules": [
+      {
+        "id": "attack-traverse-time", "sourceType": "attack", "sourceName": "Traverse Time", "trigger": "attack", "cost": ["Grass"], "conditions": [],
+        "effects": [
+          {"op": "choose_cards", "target": "self.deck", "amount": 3, "value": "up_to_grass_pokemon_or_stadium", "conditions": [], "parameters": [{"key": "selection_id", "value": "traverse_time_cards"}, {"key": "combination", "value": "any"}, {"key": "minimum", "value": "0"}, {"key": "reveal", "value": "true"}]},
+          {"op": "move_cards", "target": "self.hand", "amount": 3, "value": "selected_up_to", "conditions": [], "parameters": [{"key": "source", "value": "self.deck"}, {"key": "selection_id", "value": "traverse_time_cards"}]},
+          {"op": "shuffle_cards", "target": "self.deck", "amount": 0, "value": "all", "conditions": [], "parameters": []}
+        ]
+      },
+      {
+        "id": "attack-solar-cutter", "sourceType": "attack", "sourceName": "Solar Cutter", "trigger": "attack", "cost": ["Grass"], "conditions": [],
+        "effects": [{"op": "deal_damage", "target": "opponent.active", "amount": 30, "value": "", "conditions": [], "parameters": []}]
+      }
+    ],
+    "unsupportedText": [],
+    "notes": "Traverse Time selects zero to three total cards in any mixture of Grass Pokémon and Stadium cards, reveals them, moves the selection to hand, and shuffles."
+  },
+  {
+    "schemaVersion": 1,
+    "cardId": "me1-120",
+    "sourceTextHash": "923def2a960c56a9b4f7941d579b59f147af0c1b317c946a7b57db389c7bdf29",
+    "generatedBy": {"provider": "openai-codex", "model": "gpt-5", "responseId": "", "generatedAt": "2026-10-02T14:19:51Z"},
+    "confidence": "high",
+    "rules": [
+      {
+        "id": "supporter-lt-surges-bargain", "sourceType": "trainer_rule", "sourceName": "Lt. Surge's Bargain", "trigger": "play_card", "cost": [], "conditions": [],
+        "effects": [
+          {"op": "request_choice", "target": "opponent", "amount": 1, "value": "yes_no", "conditions": [], "parameters": [{"key": "prompt", "value": "May each player take a Prize card?"}, {"key": "result", "value": "opponent.response"}]},
+          {"op": "move_cards", "target": "self.hand", "amount": 1, "value": "take_prize", "conditions": [{"field": "opponent.response", "operator": "equals", "value": "yes"}], "parameters": [{"key": "source", "value": "self.prizes"}]},
+          {"op": "move_cards", "target": "opponent.hand", "amount": 1, "value": "take_prize", "conditions": [{"field": "opponent.response", "operator": "equals", "value": "yes"}], "parameters": [{"key": "source", "value": "opponent.prizes"}]},
+          {"op": "draw_cards", "target": "self", "amount": 4, "value": "", "conditions": [{"field": "opponent.response", "operator": "equals", "value": "no"}], "parameters": []}
+        ]
+      },
+      {
+        "id": "rule-supporter-limit", "sourceType": "trainer_rule", "sourceName": "Supporter rule", "trigger": "continuous", "cost": [], "conditions": [],
+        "effects": [{"op": "create_modifier", "target": "self.turn.supporter_plays", "amount": 1, "value": "maximum", "conditions": [], "parameters": [{"key": "duration", "value": "turn"}]}]
+      }
+    ],
+    "unsupportedText": [],
+    "notes": "The opponent owns the yes/no decision. A yes moves one Prize to each player's hand; a no draws four cards only for the player who used the Supporter."
+  },
+  {
+    "schemaVersion": 1,
+    "cardId": "me1-121",
+    "sourceTextHash": "7ff0a634cdcf53e4022f3e5d8da4c5b52b7bd12bd0ff45b5c41a73a38383ec7d",
+    "generatedBy": {"provider": "openai-codex", "model": "gpt-5", "responseId": "", "generatedAt": "2026-10-02T14:19:51Z"},
+    "confidence": "high",
+    "rules": [
+      {
+        "id": "item-mega-signal", "sourceType": "trainer_rule", "sourceName": "Mega Signal", "trigger": "play_card", "cost": [], "conditions": [],
+        "effects": [
+          {"op": "choose_cards", "target": "self.deck", "amount": 1, "value": "mega_evolution_pokemon_ex", "conditions": [], "parameters": [{"key": "selection_id", "value": "mega_signal_card"}, {"key": "reveal", "value": "true"}]},
+          {"op": "move_cards", "target": "self.hand", "amount": 1, "value": "selected", "conditions": [], "parameters": [{"key": "source", "value": "self.deck"}, {"key": "selection_id", "value": "mega_signal_card"}]},
+          {"op": "shuffle_cards", "target": "self.deck", "amount": 0, "value": "all", "conditions": [], "parameters": []}
+        ]
+      },
+      {
+        "id": "rule-item-limit", "sourceType": "trainer_rule", "sourceName": "Item rule", "trigger": "continuous", "cost": [], "conditions": [],
+        "effects": [{"op": "create_modifier", "target": "self.turn.item_plays", "amount": 0, "value": "unlimited", "conditions": [], "parameters": [{"key": "duration", "value": "turn"}]}]
+      }
+    ],
+    "unsupportedText": [],
+    "notes": "The deck search accepts only cards classified as both Mega Evolution Pokémon and Pokémon ex, reveals the result, moves it to hand, and shuffles."
+  },
+  {
+    "schemaVersion": 1,
+    "cardId": "me1-122",
+    "sourceTextHash": "15bb9867e087fe55fc65718409500bf35cc71d1978f0ab27494a3a0d99401137",
+    "generatedBy": {"provider": "openai-codex", "model": "gpt-5", "responseId": "", "generatedAt": "2026-10-02T14:19:51Z"},
+    "confidence": "high",
+    "rules": [
+      {
+        "id": "stadium-mystery-garden", "sourceType": "trainer_rule", "sourceName": "Mystery Garden", "trigger": "activate_ability", "cost": [], "conditions": [],
+        "effects": [
+          {"op": "discard_energy", "target": "self.hand", "amount": 1, "value": "any", "conditions": [], "parameters": [{"key": "destination", "value": "self.discard"}, {"key": "selection", "value": "player_choice"}, {"key": "optional", "value": "true"}]},
+          {"op": "draw_cards", "target": "self", "amount": 0, "value": "until_hand_size_equals_self_psychic_pokemon_in_play", "conditions": [], "parameters": [{"key": "usage_scope", "value": "stadium_effect_per_player_turn"}, {"key": "requires_cost_paid", "value": "true"}]}
+        ]
+      },
+      {
+        "id": "rule-stadium", "sourceType": "trainer_rule", "sourceName": "Stadium rule", "trigger": "continuous", "cost": [], "conditions": [],
+        "effects": [
+          {"op": "create_modifier", "target": "self.turn.stadium_plays", "amount": 1, "value": "maximum", "conditions": [], "parameters": [{"key": "duration", "value": "turn"}]},
+          {"op": "create_modifier", "target": "game.stadium_slot", "amount": 1, "value": "replace_and_discard_previous", "conditions": [], "parameters": []},
+          {"op": "create_modifier", "target": "self.play_stadium.same_name_allowed", "amount": 0, "value": "false", "conditions": [], "parameters": [{"key": "compare_to", "value": "stadium_in_play"}]}
+        ]
+      }
+    ],
+    "unsupportedText": [],
+    "notes": "Once per turn for each player, discarding one chosen Energy is the optional cost; after paying, that player draws only until hand size equals their Psychic Pokémon in play, never discarding down."
+  },
+  {
+    "schemaVersion": 1,
+    "cardId": "me1-123",
+    "sourceTextHash": "60df2a1b8b1ff113e0ac7dcbb35059e5a0689f0f21f53e9ef1a0fdd7246a0b60",
+    "generatedBy": {"provider": "openai-codex", "model": "gpt-5", "responseId": "", "generatedAt": "2026-10-02T14:19:51Z"},
+    "confidence": "high",
+    "rules": [
+      {
+        "id": "supporter-pokemon-center-lady", "sourceType": "trainer_rule", "sourceName": "Pokémon Center Lady", "trigger": "play_card", "cost": [], "conditions": [],
+        "effects": [
+          {"op": "heal_damage", "target": "chosen_self_pokemon", "amount": 60, "value": "", "conditions": [], "parameters": [{"key": "selection", "value": "player_choice"}, {"key": "selection_id", "value": "center_lady_pokemon"}]},
+          {"op": "clear_special_conditions", "target": "chosen_self_pokemon", "amount": 0, "value": "all", "conditions": [], "parameters": [{"key": "selection_id", "value": "center_lady_pokemon"}]}
+        ]
+      },
+      {
+        "id": "rule-supporter-limit", "sourceType": "trainer_rule", "sourceName": "Supporter rule", "trigger": "continuous", "cost": [], "conditions": [],
+        "effects": [{"op": "create_modifier", "target": "self.turn.supporter_plays", "amount": 1, "value": "maximum", "conditions": [], "parameters": [{"key": "duration", "value": "turn"}]}]
+      }
+    ],
+    "unsupportedText": [],
+    "notes": "Both effects apply to the same player-chosen Pokémon: heal up to 60 damage and clear every Special Condition."
+  }
+]

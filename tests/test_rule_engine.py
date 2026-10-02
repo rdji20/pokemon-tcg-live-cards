@@ -17,6 +17,13 @@ def test_bootstrap_rule_programs_are_executable():
         assert checks["operationCount"] >= 1
 
 
+def test_every_generated_rule_program_uses_the_supported_schema():
+    for path in sorted(Path("rules/generated").glob("*.json")):
+        for program in json.loads(path.read_text(encoding="utf-8")):
+            checks = validate_program(program)
+            assert checks["passed"], (path.name, program["cardId"], checks["errors"])
+
+
 def test_coin_effect_resolution_is_seeded_and_conditional():
     program = next(
         item for item in json.loads(PROGRAMS.read_text(encoding="utf-8"))

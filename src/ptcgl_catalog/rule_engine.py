@@ -13,10 +13,10 @@ ALLOWED_TRIGGERS = {
     "would_be_knocked_out",
 }
 ALLOWED_OPERATIONS = {
-    "choose_cards", "confuse", "create_modifier", "deal_damage",
+    "choose_cards", "clear_special_conditions", "confuse", "create_modifier", "deal_damage",
     "discard_cards", "discard_energy", "draw_cards", "flip_coin",
     "heal_damage", "inspect_top_deck", "knockout", "move_cards", "move_energy",
-    "set_prize_value", "shuffle_cards", "shuffle_zone_into_deck",
+    "request_choice", "set_prize_value", "shuffle_cards", "shuffle_zone_into_deck",
     "swap_cards", "switch_active",
 }
 ALLOWED_OPERATORS = {"equals", "not_equals", "at_least", "at_most", "exists", "contains", "not_contains"}
