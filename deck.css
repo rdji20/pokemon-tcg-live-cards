@@ -54,11 +54,14 @@ button, input, textarea, select { font-family: "Roboto", Arial, sans-serif; font
 .library-card-art:focus-visible { outline: 3px solid rgba(32,33,36,.35); outline-offset: 3px; }
 .library-card-controls { min-height: 35px; margin-top: 7px; display: grid; grid-template-columns: 1fr; }
 .add-card-button { width: 100%; height: 35px; border: 1px solid #cfd4da; border-radius: 6px; color: #202124; background: #fff; font-size: 12px; font-weight: 500; }
+.choose-print-button { width: 100%; height: 35px; border: 1px solid #cfd4da; border-radius: 6px; color: #202124; background: #fff; font-size: 12px; font-weight: 500; }
+.choose-print-button:hover { border-color: #202124; background: #202124; color: #fff; }
 .add-card-button:hover:not(:disabled) { border-color: #202124; background: #202124; color: #fff; }
 .add-card-button:disabled { cursor: not-allowed; color: #8a9098; background: #eceef0; }
 .library-quantity { height: 35px; display: grid; grid-template-columns: 35px 1fr 35px; border: 1px solid #202124; border-radius: 6px; overflow: hidden; background: #fff; }
 .library-quantity button { border: 0; color: #202124; background: #fff; font-size: 18px; }
-.library-quantity button:hover { color: #fff; background: #202124; }
+.library-quantity button:hover:not(:disabled) { color: #fff; background: #202124; }
+.library-quantity button:disabled { cursor: not-allowed; color: #a2a7ae; background: #eceef0; }
 .library-quantity strong { display: grid; place-items: center; border-right: 1px solid #d7dbe0; border-left: 1px solid #d7dbe0; font-size: 12px; }
 .library-card-copy-limit { margin: 6px 0 0; color: #b82928; font-size: 10px; text-align: center; }
 .library-card-name { margin: 8px 1px 0; overflow: hidden; color: #202124; font-size: 12px; font-weight: 500; text-overflow: ellipsis; white-space: nowrap; }
@@ -155,6 +158,29 @@ button, input, textarea, select { font-family: "Roboto", Arial, sans-serif; font
 .deck-tile-action { height: 36px; border: 1px solid #c8cdd3; border-radius: 6px; color: #202124; background: #fff; font-size: 11px; }
 .deck-tile-action:hover { border-color: #202124; }
 
+.print-picker { width: min(1120px, calc(100% - 32px)); max-height: calc(100vh - 32px); padding: 0; overflow: hidden; border: 0; border-radius: 12px; color: #202124; background: #f4f5f6; box-shadow: 0 24px 70px rgba(0,0,0,.3); }
+.print-picker::backdrop { background: rgba(18,20,23,.72); }
+.print-picker-head { min-height: 78px; padding: 15px 18px 15px 22px; display: flex; align-items: center; justify-content: space-between; gap: 20px; border-bottom: 1px solid #d6dade; background: #fff; }
+.print-picker-head p { margin: 0 0 3px; color: #6b7280; font-size: 11px; }
+.print-picker-head h2 { margin: 0; font-size: 22px; font-weight: 500; }
+.print-picker-head button { width: 38px; height: 38px; border: 1px solid #d2d6db; border-radius: 50%; color: #202124; background: #fff; font-size: 24px; line-height: 1; }
+.print-picker-head button:hover { border-color: #202124; }
+.print-picker-grid { max-height: calc(100vh - 110px); padding: 24px; display: grid; grid-template-columns: repeat(auto-fill, minmax(190px, 1fr)); align-items: start; gap: 24px 16px; overflow-y: auto; }
+.print-picker-message { min-height: 350px; grid-column: 1 / -1; display: grid; place-items: center; color: #6b7280; }
+.print-option { min-width: 0; }
+.print-option > img { width: 100%; display: block; aspect-ratio: 245 / 342; border-radius: 9px; object-fit: contain; background: #e2e5e8; box-shadow: 0 6px 16px rgba(28,32,36,.18); }
+.print-option-copy { min-height: 47px; padding: 9px 2px 5px; }
+.print-option-copy strong { display: block; overflow: hidden; font-size: 13px; font-weight: 500; text-overflow: ellipsis; white-space: nowrap; }
+.print-option-copy span { display: block; margin-top: 4px; overflow: hidden; color: #737a84; font-size: 11px; text-overflow: ellipsis; white-space: nowrap; }
+.select-print-button { width: 100%; height: 38px; border: 1px solid #202124; border-radius: 6px; color: #fff; background: #202124; font-size: 12px; font-weight: 500; }
+.select-print-button:hover:not(:disabled) { background: #353a41; }
+.select-print-button:disabled { cursor: not-allowed; border-color: #d0d4d9; color: #8b929b; background: #e7e9ec; }
+.print-option-quantity { height: 38px; display: grid; grid-template-columns: 42px 1fr 42px; overflow: hidden; border: 1px solid #202124; border-radius: 6px; background: #fff; }
+.print-option-quantity button { border: 0; color: #202124; background: #fff; font-size: 19px; }
+.print-option-quantity button:hover:not(:disabled) { color: #fff; background: #202124; }
+.print-option-quantity button:disabled { cursor: not-allowed; color: #a2a7ae; background: #eceef0; }
+.print-option-quantity strong { display: grid; place-items: center; border-right: 1px solid #d9dde1; border-left: 1px solid #d9dde1; font-size: 12px; }
+
 @media (max-width: 1180px) {
   .deck-studio { grid-template-columns: minmax(0, 1fr) 360px; }
   .builder-card-grid { grid-template-columns: repeat(auto-fill, minmax(132px, 1fr)); }
@@ -191,4 +217,7 @@ button, input, textarea, select { font-family: "Roboto", Arial, sans-serif; font
   .saved-decks { grid-template-columns: 1fr; }
   .deck-tile { grid-template-columns: 1fr; }
   .deck-tile-preview { min-height: 240px; }
+  .print-picker-grid { padding: 16px 12px; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 20px 10px; }
+  .print-picker-head { padding: 12px 14px; }
+  .print-picker-head h2 { font-size: 19px; }
 }

@@ -121,6 +121,8 @@ Deck Lab. It starts with an empty Standard deck beside the complete searchable
 Standard catalog. Card search, set and type filters, sorting, progressive
 loading, copy limits, composition counts, imported lists, validation, and
 saved decks all use PostgreSQL-backed data rather than a browser-side catalog.
+Functionally identical reprints collapse into one library entry; opening its
+print picker selects the exact artwork, set, and collector number for the deck.
 
 Open [http://localhost:8000/arena.html](http://localhost:8000/arena.html) for
 the interactive Arena. It can use any saved, valid 60-card Standard deck from
@@ -168,6 +170,7 @@ docker compose exec db psql -U ptcgl -d ptcgl -c \
 ## API checkpoints
 
 - `GET /api/cards` — fuzzy/full-text search, filters, sorting, pagination
+- `GET /api/card-prints?group=...` — expand one gameplay-equivalent print group
 - `GET /api/sets` and `GET /api/status` — catalog metadata
 - `POST /api/sync` — local guarded download and PostgreSQL import
 - `POST /api/decks/validate` and `POST /api/decks` — validate and save a deck

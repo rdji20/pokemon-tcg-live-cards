@@ -358,7 +358,10 @@ variables and are never committed.
   performance detail, not a limit on available cards. The server remains
   authoritative for 60-card, same-name copy, Basic Pokémon, TCG Live, and
   format-legality validation. Quick Build and text import are secondary paths
-  into the same draft state.
+  into the same draft state. Functionally identical reprints are grouped by a
+  normalized gameplay fingerprint, while the selected card ID remains in the
+  deck. A separate print endpoint expands a group only when the player opens
+  its artwork picker, so alternate art does not crowd the main library.
 
 ## Open decisions
 

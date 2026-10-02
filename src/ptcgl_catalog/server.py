@@ -21,8 +21,8 @@ import psycopg
 
 from .catalog import CatalogError, build_catalog
 from .database import (
-    apply_migrations, catalog_status, database_url, get_card_effects, get_ruleset,
-    import_catalog, list_sets, search_cards,
+    apply_migrations, catalog_status, database_url, get_card_effects,
+    get_card_prints, get_ruleset, import_catalog, list_sets, search_cards,
 )
 from .decks import create_deck, export_deck, get_deck, list_decks, validate_payload
 from .optimization import optimize_deck
@@ -179,9 +179,22 @@ class CatalogRequestHandler(SimpleHTTPRequestHandler):
                     page=int(value("page", "1")),
                     page_size=int(value("page_size", "48")),
                     sort=value("sort", "newest"),
+                    grouped=value("grouped").lower() in {"1", "true", "yes"},
                     url=self.server.database_url,
                 )
                 self._json_response(HTTPStatus.OK, payload)
+            except (psycopg.Error, ValueError) as exc:
+                self._json_response(HTTPStatus.BAD_REQUEST, {"error": str(exc)})
+            return
+        if parsed.path == "/api/card-prints":
+            query = parse_qs(parsed.query)
+            try:
+                items = get_card_prints(
+                    query.get("group", [""])[0],
+                    legality=query.get("legality", ["standard"])[0],
+                    url=self.server.database_url,
+                )
+                self._json_response(HTTPStatus.OK, {"items": items})
             except (psycopg.Error, ValueError) as exc:
                 self._json_response(HTTPStatus.BAD_REQUEST, {"error": str(exc)})
             return

@@ -71,6 +71,21 @@ control after the card is chosen. Do not place floating quantity circles,
 validation labels, or decorative UI on top of the card art. The copy limit is
 calculated across every print with the same card name; Basic Energy is exempt.
 
+Functionally identical reprints appear as one Library Card. Identity is based
+on normalized gameplay data, including card name, type, evolution, HP, attacks,
+Abilities, rules, Weakness, Resistance, and Retreat—not merely on a shared
+name. The bottom control states how many prints are available. Clicking the
+card or that control opens the Print Picker with every Standard-legal artwork,
+set, collector number, and rarity. The chosen physical print is what enters the
+deck and remains visible in its compact deck row.
+
+### Print Picker
+
+The Print Picker is a focused overlay made from real card images. It shows all
+functionally equivalent prints at a readable size and gives each one its own
+`Add this print` or quantity control. Never hide variants inside a generic
+select menu and never choose an artwork silently when more than one exists.
+
 ### Active Deck
 
 The Active Deck is a persistent right-side tray beside the Card Library. It

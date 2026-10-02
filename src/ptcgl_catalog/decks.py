@@ -8,7 +8,7 @@ from uuid import UUID
 import psycopg
 from psycopg.rows import dict_row
 
-from .database import database_url
+from .database import GAMEPLAY_FINGERPRINT_SQL, database_url
 
 
 DECK_SIZE = 60
@@ -100,9 +100,9 @@ def validate_deck(
         """
         SELECT id, name, supertype, subtypes, standard_status,
                live_expanded_status, live_status, image_small, image_large,
-               set_id, number
+               set_id, number, ({GAMEPLAY_FINGERPRINT_SQL}) AS print_group
         FROM cards WHERE active AND id = ANY(%s)
-        """,
+        """.format(GAMEPLAY_FINGERPRINT_SQL=GAMEPLAY_FINGERPRINT_SQL),
         (ids,),
     ).fetchall() if ids else []
     cards = {row[0]: row for row in rows}
@@ -116,7 +116,7 @@ def validate_deck(
         row = cards.get(item["card_id"])
         if row is None:
             continue
-        _, name, supertype, subtypes, standard_status, live_expanded_status, live_status, _, _, _, _ = row
+        _, name, supertype, subtypes, standard_status, live_expanded_status, live_status, _, _, _, _, _ = row
         is_basic_energy = supertype == "Energy" and "Basic" in (subtypes or [])
         if not is_basic_energy:
             copies_by_name[name] += item["quantity"]
@@ -147,6 +147,7 @@ def validate_deck(
             "image_large": row[8],
             "set_id": row[9],
             "number": row[10],
+            "print_group": row[11],
         })
     return {
         "valid": not errors,
@@ -203,12 +204,12 @@ def get_deck(deck_id: str, url: str | None = None) -> dict[str, Any] | None:
             """
             SELECT dc.card_id, dc.quantity, c.name, c.set_id, c.number,
                    c.supertype, c.subtypes, c.image_small, c.image_large,
-                   c.raw_data
+                   c.raw_data, ({GAMEPLAY_FINGERPRINT_SQL}) AS print_group
             FROM deck_cards dc
             JOIN cards c ON c.id = dc.card_id
             WHERE dc.deck_id = %s
             ORDER BY c.supertype, c.name, c.set_id, c.number
-            """,
+            """.format(GAMEPLAY_FINGERPRINT_SQL=GAMEPLAY_FINGERPRINT_SQL),
             (deck_id,),
         ).fetchall()
     result = dict(deck)

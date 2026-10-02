@@ -18,6 +18,25 @@ from .rule_engine import source_text_hash
 
 DEFAULT_DATABASE_URL = "postgresql://ptcgl:ptcgl_local@localhost:5432/ptcgl"
 
+GAMEPLAY_FINGERPRINT_SQL = """
+md5(regexp_replace(jsonb_build_object(
+    'name', name,
+    'supertype', supertype,
+    'subtypes', to_jsonb(subtypes),
+    'types', to_jsonb(types),
+    'hp', hp,
+    'evolvesFrom', raw_data->'evolvesFrom',
+    'ancientTrait', raw_data->'ancientTrait',
+    'abilities', coalesce(raw_data->'abilities', '[]'::jsonb),
+    'attacks', coalesce(raw_data->'attacks', '[]'::jsonb),
+    'rules', coalesce(raw_data->'rules', '[]'::jsonb),
+    'weaknesses', coalesce(raw_data->'weaknesses', '[]'::jsonb),
+    'resistances', coalesce(raw_data->'resistances', '[]'::jsonb),
+    'retreatCost', coalesce(raw_data->'retreatCost', '[]'::jsonb),
+    'convertedRetreatCost', raw_data->'convertedRetreatCost'
+)::text, '[[:space:]]+', ' ', 'g'))
+""".strip()
+
 
 @dataclass(frozen=True)
 class ImportResult:
@@ -352,6 +371,7 @@ def search_cards(
     page: int = 1,
     page_size: int = 48,
     sort: str = "newest",
+    grouped: bool = False,
     url: str | None = None,
 ) -> dict[str, Any]:
     page = max(1, page)
@@ -395,6 +415,71 @@ def search_cards(
         order_sql = "rank DESC, release_date DESC, name"
 
     with psycopg.connect(database_url(url), row_factory=dict_row) as connection:
+        if grouped:
+            totals = connection.execute(
+                f"""
+                SELECT count(DISTINCT ({GAMEPLAY_FINGERPRINT_SQL})) AS total,
+                       count(*) AS print_total
+                FROM cards WHERE {where_sql}
+                """,
+                params,
+            ).fetchone()
+            total = totals["total"]
+            print_total = totals["print_total"]
+            pages = max(1, (total + page_size - 1) // page_size)
+            page = min(page, pages)
+            rows = connection.execute(
+                f"""
+                WITH filtered AS (
+                    SELECT cards.*, ({GAMEPLAY_FINGERPRINT_SQL}) AS print_group,
+                           {rank_sql} AS rank
+                    FROM cards
+                    WHERE {where_sql}
+                ), grouped_cards AS (
+                    SELECT filtered.*,
+                           count(*) OVER (PARTITION BY print_group) AS print_count,
+                           row_number() OVER (
+                               PARTITION BY print_group
+                               ORDER BY release_date DESC, set_id, number, id
+                           ) AS print_order
+                    FROM filtered
+                )
+                SELECT raw_data, live_status, standard_status, expanded_status,
+                       live_expanded_status, legality_evidence, verified_at,
+                       print_group, print_count,
+                       coalesce(validation.ai_validated, false) AS ai_validated,
+                       coalesce(validation.human_validated, false) AS human_validated,
+                       rank
+                FROM grouped_cards AS cards
+                LEFT JOIN LATERAL (
+                    SELECT
+                        bool_or(rv.ai_status = 'passed') AS ai_validated,
+                        bool_or(rv.manual_status = 'approved') AS human_validated
+                    FROM card_rule_versions rv
+                    WHERE rv.card_id = cards.id
+                      AND rv.source_text_hash = cards.source_text_hash
+                ) validation ON true
+                WHERE print_order = 1
+                ORDER BY {order_sql}
+                LIMIT %s OFFSET %s
+                """,
+                [*rank_params, *params, page_size, (page - 1) * page_size],
+            ).fetchall()
+            items = []
+            for row in rows:
+                card = _card_payload(dict(row))
+                card["printGroup"] = row["print_group"]
+                card["printCount"] = int(row["print_count"])
+                items.append(card)
+            return {
+                "items": items,
+                "total": total,
+                "printTotal": print_total,
+                "page": page,
+                "pageSize": page_size,
+                "pages": pages,
+                "grouped": True,
+            }
         total = connection.execute(
             f"SELECT count(*) AS total FROM cards WHERE {where_sql}",
             params,
@@ -430,6 +515,48 @@ def search_cards(
         "pageSize": page_size,
         "pages": pages,
     }
+
+
+def get_card_prints(
+    print_group: str,
+    *,
+    legality: str = "standard",
+    url: str | None = None,
+) -> list[dict[str, Any]]:
+    normalized_group = print_group.lower()
+    if len(normalized_group) != 32 or any(character not in "0123456789abcdef" for character in normalized_group):
+        raise ValueError("Invalid print group")
+    status_column = {
+        "standard": "standard_status",
+        "expanded": "expanded_status",
+        "live-expanded": "live_expanded_status",
+    }.get(legality)
+    where = ["active", f"({GAMEPLAY_FINGERPRINT_SQL}) = %s"]
+    params: list[Any] = [normalized_group]
+    if status_column:
+        where.append(f"{status_column} = 'legal'")
+    with psycopg.connect(database_url(url), row_factory=dict_row) as connection:
+        rows = connection.execute(
+            f"""
+            SELECT raw_data, live_status, standard_status, expanded_status,
+                   live_expanded_status, legality_evidence, verified_at,
+                   coalesce(validation.ai_validated, false) AS ai_validated,
+                   coalesce(validation.human_validated, false) AS human_validated
+            FROM cards
+            LEFT JOIN LATERAL (
+                SELECT
+                    bool_or(rv.ai_status = 'passed') AS ai_validated,
+                    bool_or(rv.manual_status = 'approved') AS human_validated
+                FROM card_rule_versions rv
+                WHERE rv.card_id = cards.id
+                  AND rv.source_text_hash = cards.source_text_hash
+            ) validation ON true
+            WHERE {' AND '.join(where)}
+            ORDER BY release_date DESC, set_id, number, id
+            """,
+            params,
+        ).fetchall()
+    return [_card_payload(dict(row)) for row in rows]
 
 
 def get_ruleset(ruleset_id: str = "pokemon-tcg-standard", url: str | None = None) -> dict[str, Any] | None:

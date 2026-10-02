@@ -10,7 +10,7 @@
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=Roboto:wght@400;500;700&display=swap" rel="stylesheet">
   <link rel="stylesheet" href="styles.css">
-  <link rel="stylesheet" href="deck.css?v=6">
+  <link rel="stylesheet" href="deck.css?v=7">
 </head>
 <body class="deck-builder-page">
   <header class="site-header">
@@ -156,8 +156,19 @@
     </section>
   </main>
 
+  <dialog class="print-picker" id="printDialog" aria-labelledby="printDialogTitle">
+    <div class="print-picker-head">
+      <div>
+        <p>Choose the artwork and set</p>
+        <h2 id="printDialogTitle">Available prints</h2>
+      </div>
+      <button id="closePrintDialog" type="button" aria-label="Close print picker">×</button>
+    </div>
+    <div class="print-picker-grid" id="printPickerGrid"></div>
+  </dialog>
+
   <footer><span>Pokémon TCG Live Cards</span><p>Build · validate · play</p></footer>
   <script src="components.js?v=1" defer></script>
-  <script src="deck.js?v=8" defer></script>
+  <script src="deck.js?v=9" defer></script>
 </body>
 </html>

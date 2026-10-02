@@ -7,7 +7,7 @@ import psycopg
 from psycopg.rows import dict_row
 from psycopg.types.json import Jsonb
 
-from .database import database_url
+from .database import GAMEPLAY_FINGERPRINT_SQL, database_url
 from .effects import draw_value, maximum_attack_damage
 
 
@@ -38,11 +38,12 @@ def optimize_deck(payload: dict[str, Any], url: str | None = None) -> dict[str, 
             f"""
             SELECT c.id, c.name, c.supertype, c.subtypes, c.types, c.hp,
                    c.rules_text, c.image_small, c.image_large, c.set_id,
-                   c.number, ce.effects
+                   c.number, ({GAMEPLAY_FINGERPRINT_SQL}) AS print_group,
+                   ce.effects
             FROM cards c LEFT JOIN card_effects ce ON ce.card_id = c.id
             WHERE c.active AND c.{status_column} = 'legal'
               AND (%s = '' OR c.supertype <> 'Pokémon' OR %s = ANY(c.types))
-            """,
+            """.format(GAMEPLAY_FINGERPRINT_SQL=GAMEPLAY_FINGERPRINT_SQL),
             (type_name, type_name),
         ).fetchall()
         candidates = [dict(row) for row in rows]
@@ -66,6 +67,7 @@ def optimize_deck(payload: dict[str, Any], url: str | None = None) -> dict[str, 
                     "subtypes": row["subtypes"] or [],
                     "image_small": row["image_small"], "image_large": row["image_large"],
                     "set_id": row["set_id"], "number": row["number"],
+                    "print_group": row["print_group"],
                     "score": round(_score(row), 2),
                 })
                 used_names.add(row["name"])
@@ -87,6 +89,7 @@ def optimize_deck(payload: dict[str, Any], url: str | None = None) -> dict[str, 
                 "subtypes": row["subtypes"] or [],
                 "image_small": row["image_small"], "image_large": row["image_large"],
                 "set_id": row["set_id"], "number": row["number"],
+                "print_group": row["print_group"],
                 "score": round(_score(row), 2),
             })
             used_names.add(row["name"])
@@ -100,6 +103,7 @@ def optimize_deck(payload: dict[str, Any], url: str | None = None) -> dict[str, 
                 "subtypes": energy["subtypes"] or [],
                 "image_small": energy["image_small"], "image_large": energy["image_large"],
                 "set_id": energy["set_id"], "number": energy["number"],
+                "print_group": energy["print_group"],
                 "score": 0,
             })
         total = sum(item["quantity"] for item in chosen)

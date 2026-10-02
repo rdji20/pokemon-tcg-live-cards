@@ -68,6 +68,8 @@ def test_deck_lab_is_a_catalog_backed_builder():
     assert 'id="setFilter"' in markup
     assert 'id="deckFormat" type="hidden" value="standard"' in markup
     assert 'id="importButton"' in markup
+    assert 'id="printDialog"' in markup
+    assert 'id="printPickerGrid"' in markup
     assert "Test arena" not in markup
 
 

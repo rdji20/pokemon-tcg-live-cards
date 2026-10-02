@@ -55,6 +55,7 @@ jobs:
           python - <<'PY'
           import os
           import psycopg
+          from ptcgl_catalog.database import get_card_prints, search_cards
           with psycopg.connect(os.environ["DATABASE_URL"]) as connection:
               cards = connection.execute("select count(*) from cards where active").fetchone()[0]
               effects = connection.execute("select count(*) from card_effects").fetchone()[0]
@@ -64,4 +65,15 @@ jobs:
           assert effects == cards
           assert runs == 1
           assert rule_drafts >= 10
+          grouped = search_cards(
+              legality="standard", grouped=True, page_size=100,
+              sort="evolution", url=os.environ["DATABASE_URL"],
+          )
+          assert grouped["printTotal"] >= grouped["total"] > 0
+          alternate = next(card for card in grouped["items"] if card["printCount"] > 1)
+          prints = get_card_prints(
+              alternate["printGroup"], legality="standard",
+              url=os.environ["DATABASE_URL"],
+          )
+          assert len(prints) == alternate["printCount"]
           PY
