@@ -26,13 +26,14 @@ from .optimization import optimize_deck
 from .rule_engine import executable_effects, matching_rule
 
 
-ARENA_VERSION = "arena-0.4.0"
+ARENA_VERSION = "arena-0.4.1"
 AI_POLICY_VERSION = "simple-ai-0.1.0"
 MATCH_CLOCK_SECONDS = 20 * 60
 ARENA_SUPPORTED_OPERATIONS = {
     "choose_cards", "clear_special_conditions", "confuse", "create_modifier",
     "deal_damage", "discard_cards", "discard_energy", "draw_cards", "flip_coin",
     "heal_damage", "inspect_top_deck", "knockout", "move_cards", "move_energy",
+    "place_damage_counters",
     "request_choice", "set_prize_value", "shuffle_cards", "shuffle_zone_into_deck",
     "swap_cards", "switch_active",
 }
@@ -641,6 +642,7 @@ class ArenaSession:
         *,
         target_uid: str | None = None,
         switch_target_uid: str | None = None,
+        event: dict[str, Any] | None = None,
     ) -> None:
         player = self.players[player_index]
         opponent = self.players[1 - player_index]
@@ -720,10 +722,28 @@ class ArenaSession:
                 runtime["inspected"] = []
             self.rng.shuffle(player["deck"])
         elif op == "heal_damage":
-            chosen = self._chosen_self(player_index, target_uid)
+            chosen = source if target == "self" and "damage" in source else self._chosen_self(player_index, target_uid)
             if chosen:
                 chosen["damage"] = 0 if value == "all" else max(0, chosen["damage"] - amount)
                 runtime.setdefault("selections", {})[parameters.get("selection_id", "chosen_self_pokemon")] = chosen
+        elif op == "place_damage_counters":
+            benched_event = (event or {}).get("benched", {})
+            affected_uid = str(benched_event.get("uid") or target_uid or "")
+            affected_owner = int(benched_event.get("owner", 1 - player_index))
+            affected = next(
+                (item for item in self._in_play(self.players[affected_owner]) if item["uid"] == affected_uid),
+                None,
+            )
+            if target == "self" and "damage" in source:
+                affected = source
+                affected_owner = player_index
+            if affected:
+                affected["damage"] += amount * 10
+                if affected["damage"] >= affected["card"]["hp"]:
+                    if self.players[affected_owner].get("active") is affected:
+                        self._knock_out(1 - affected_owner, affected_owner)
+                    else:
+                        self._knock_out_benched(1 - affected_owner, affected_owner, affected)
         elif op == "clear_special_conditions":
             selection = runtime.get("selections", {}).get(parameters.get("selection_id", "chosen_self_pokemon"))
             chosen = selection if isinstance(selection, dict) else self._chosen_self(player_index, target_uid)
@@ -794,7 +814,7 @@ class ArenaSession:
             if effect["op"] not in {"deal_damage", "knockout", "set_prize_value", "flip_coin", "request_choice"}:
                 self._apply_non_damage_effect(
                     player_index, source, effect, runtime,
-                    target_uid=target_uid, switch_target_uid=switch_target_uid,
+                    target_uid=target_uid, switch_target_uid=switch_target_uid, event=event,
                 )
         if any(effect.get("op") == "move_cards" and effect.get("value") == "take_prize" for effect in effects):
             players_without_prizes = [index for index, player in enumerate(self.players) if not player["prizes"]]
@@ -816,8 +836,32 @@ class ArenaSession:
         if not _is_basic(item):
             raise ValueError("Only a Basic Pokémon can be placed directly on the Bench")
         player["hand"].remove(item)
-        player["bench"].append(_pokemon(item, entered_turn=player["turnsTaken"]))
+        benched = _pokemon(item, entered_turn=player["turnsTaken"])
+        player["bench"].append(benched)
         self.log.append(f"{player['name']} benched {item['card']['name']}.")
+        if self.stadium:
+            rule = self._program_rule(self.stadium["card"], "on_bench")
+            if rule:
+                owner_index = int(self.stadium.get("owner", 0))
+                player_index = self.players.index(player)
+                event = {
+                    "benched": {
+                        "uid": benched["uid"],
+                        "owner": player_index,
+                        "subtypes": benched["card"]["subtypes"],
+                        "types": benched["card"]["types"],
+                        "during_owners_turn": self.current_player == player_index,
+                    },
+                }
+                effects, _ = self._execute_rule(owner_index, self.stadium, rule, event=event)
+                if effects:
+                    self._trace_rule(
+                        player_index=owner_index,
+                        source=self.stadium,
+                        rule=rule,
+                        effects=effects,
+                        summary=f"{self.stadium['card']['name']} placed damage counters on {item['card']['name']}.",
+                    )
 
     def _attach(self, player: dict[str, Any], card_uid: str, target_uid: str) -> None:
         if player["energyAttached"]:

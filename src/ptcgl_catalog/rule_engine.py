@@ -10,12 +10,13 @@ from typing import Any
 SCHEMA_VERSION = 1
 ALLOWED_TRIGGERS = {
     "activate_ability", "attack", "continuous", "on_knockout", "play_card",
-    "would_be_knocked_out",
+    "on_bench", "would_be_knocked_out",
 }
 ALLOWED_OPERATIONS = {
     "choose_cards", "clear_special_conditions", "confuse", "create_modifier", "deal_damage",
     "discard_cards", "discard_energy", "draw_cards", "flip_coin",
     "heal_damage", "inspect_top_deck", "knockout", "move_cards", "move_energy",
+    "place_damage_counters",
     "request_choice", "set_prize_value", "shuffle_cards", "shuffle_zone_into_deck",
     "swap_cards", "switch_active",
 }

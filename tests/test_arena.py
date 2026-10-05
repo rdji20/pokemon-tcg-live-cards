@@ -1,4 +1,7 @@
 from ptcgl_catalog import arena as arena_module
+import json
+from pathlib import Path
+
 from ptcgl_catalog.arena import AI_POLICY_VERSION, ARENA_VERSION, MATCH_CLOCK_SECONDS, ArenaSession, report_arena_rule
 from ptcgl_catalog.game_rules import CORE_RULES_VERSION
 
@@ -123,6 +126,77 @@ def test_arena_returns_to_player_after_simple_ai_turn():
     assert state["isPlayerTurn"]
     assert state["turn"] == 3
     assert any(action["type"] == "attack" for action in state["legalActions"])
+
+
+def test_risky_ruins_places_counters_instead_of_dealing_attack_damage():
+    programs = json.loads(Path("rules/generated/standard-2026-10-05-batch-05.json").read_text(encoding="utf-8"))
+    risky_ruins = next(item for item in programs if item["cardId"] == "me1-127")
+    session = ArenaSession(
+        player_name="Player",
+        player_deck=_deck("player"),
+        opponent_name="Opponent",
+        opponent_deck=_deck("opponent"),
+        seed=11,
+    )
+    _finish_setup(session)
+    session.current_player = 0
+    session.players[0]["bench"] = []
+    session.stadium = {
+        "uid": "risky-ruins",
+        "owner": 1,
+        "card": {
+            **_card("me1-127", "Risky Ruins", "Trainer", subtypes=["Stadium"]),
+            "ruleProgram": risky_ruins,
+            "ruleVersion": None,
+        },
+    }
+    basic = {
+        "uid": "new-basic",
+        "card": {
+            **_card("test-basic", "Bench Target", "Pokémon", subtypes=["Basic"], hp=70),
+            "weaknesses": [{"type": "Colorless", "value": "×2"}],
+        },
+    }
+    session.players[0]["hand"].append(basic)
+    session._bench(session.players[0], basic["uid"])
+
+    benched = next(item for item in session.players[0]["bench"] if item["uid"] == basic["uid"])
+    assert benched["damage"] == 20
+
+
+def test_risky_ruins_ignores_darkness_and_out_of_turn_bench_entries():
+    programs = json.loads(Path("rules/generated/standard-2026-10-05-batch-05.json").read_text(encoding="utf-8"))
+    risky_ruins = next(item for item in programs if item["cardId"] == "me1-127")
+    session = ArenaSession(
+        player_name="Player",
+        player_deck=_deck("player"),
+        opponent_name="Opponent",
+        opponent_deck=_deck("opponent"),
+        seed=12,
+    )
+    _finish_setup(session)
+    session.current_player = 0
+    session.players[0]["bench"] = []
+    session.stadium = {
+        "uid": "risky-ruins",
+        "owner": 0,
+        "card": {
+            **_card("me1-127", "Risky Ruins", "Trainer", subtypes=["Stadium"]),
+            "ruleProgram": risky_ruins,
+            "ruleVersion": None,
+        },
+    }
+    darkness = {"uid": "dark-basic", "card": _card("dark", "Dark Basic", "Pokémon", subtypes=["Basic"], hp=70)}
+    darkness["card"]["types"] = ["Darkness"]
+    session.players[0]["hand"].append(darkness)
+    session._bench(session.players[0], darkness["uid"])
+    assert next(item for item in session.players[0]["bench"] if item["uid"] == darkness["uid"])["damage"] == 0
+
+    session.current_player = 1
+    colorless = {"uid": "off-turn-basic", "card": _card("off-turn", "Off-turn Basic", "Pokémon", subtypes=["Basic"], hp=70)}
+    session.players[0]["hand"].append(colorless)
+    session._bench(session.players[0], colorless["uid"])
+    assert next(item for item in session.players[0]["bench"] if item["uid"] == colorless["uid"])["damage"] == 0
 
 
 def test_player_chooses_replacement_after_opponent_knockout():

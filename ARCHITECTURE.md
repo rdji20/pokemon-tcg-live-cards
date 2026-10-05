@@ -363,6 +363,26 @@ variables and are never committed.
   deck. A separate print endpoint expands a group only when the player opens
   its artwork picker, so alternate art does not crowd the main library.
 
+### ADR-018: Model damage counters separately from attack damage
+
+- Status: Accepted
+- Date: 2026-10-05
+- Decision: Rule programs use `place_damage_counters` for effects that place
+  counters and `deal_damage` for attack damage. One placed counter adds 10 to
+  the Pokémon's tracked damage, but it does not pass through attack-damage
+  modifiers, Weakness, Resistance, or damage prevention. Bench-entry effects
+  are dispatched through the `on_bench` event so Stadium programs can apply to
+  either player without card-name conditionals.
+- Reason: Pokémon TCG treats counters as the record of damage already on a
+  Pokémon, while placing counters is an effect rather than doing damage. Using
+  a single operation would produce incorrect outcomes for protection,
+  Weakness, Resistance, retaliation, and Knock Out attribution.
+- Consequence: Generated programs must preserve the source card's wording when
+  choosing between damage and counters. Arena still stores the resulting total
+  in damage points for HP arithmetic, but the operation and trace retain how it
+  arrived there. Counter movement and removal remain separate future
+  operations rather than aliases for damage or healing.
+
 ## Open decisions
 
 - Python HTTP framework and API contract.

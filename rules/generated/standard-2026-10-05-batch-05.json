@@ -1,0 +1,151 @@
+[
+  {
+    "schemaVersion": 1,
+    "cardId": "me1-127",
+    "sourceTextHash": "90582f2de7dd592328b7efb09451dede51ef05c1e3540ae4277bbfef4cec7bfa",
+    "generatedBy": {"provider": "openai-codex", "model": "gpt-5", "responseId": "", "generatedAt": "2026-10-05T08:30:00Z"},
+    "confidence": "high",
+    "rules": [
+      {
+        "id": "stadium-risky-ruins-bench-entry", "sourceType": "trainer_rule", "sourceName": "Risky Ruins", "trigger": "on_bench", "cost": [],
+        "conditions": [
+          {"field": "event.benched.subtypes", "operator": "contains", "value": "Basic"},
+          {"field": "event.benched.types", "operator": "not_contains", "value": "Darkness"},
+          {"field": "event.benched.during_owners_turn", "operator": "equals", "value": true}
+        ],
+        "effects": [
+          {"op": "place_damage_counters", "target": "event.benched", "amount": 2, "value": "", "conditions": [], "parameters": []}
+        ]
+      },
+      {
+        "id": "rule-stadium", "sourceType": "trainer_rule", "sourceName": "Stadium rule", "trigger": "continuous", "cost": [], "conditions": [],
+        "effects": [
+          {"op": "create_modifier", "target": "self.turn.stadium_plays", "amount": 1, "value": "maximum", "conditions": [], "parameters": [{"key": "duration", "value": "turn"}]},
+          {"op": "create_modifier", "target": "game.stadium_slot", "amount": 1, "value": "replace_and_discard_previous", "conditions": [], "parameters": []},
+          {"op": "create_modifier", "target": "self.play_stadium.same_name_allowed", "amount": 0, "value": "false", "conditions": [], "parameters": [{"key": "compare_to", "value": "stadium_in_play"}]}
+        ]
+      }
+    ],
+    "unsupportedText": [],
+    "notes": "Bench entry is an event, not attack damage. Two counters add 20 tracked damage without Weakness, Resistance, or attack-damage modifiers; the effect applies symmetrically only during the entering Pokémon owner's turn and excludes Darkness Pokémon."
+  },
+  {
+    "schemaVersion": 1,
+    "cardId": "me1-13",
+    "sourceTextHash": "d38e2e5cc813a133f0410d0db4d18417ed6f700cbc2ff98ac53c2da2a27edcf9",
+    "generatedBy": {"provider": "openai-codex", "model": "gpt-5", "responseId": "", "generatedAt": "2026-10-05T08:30:00Z"},
+    "confidence": "high",
+    "rules": [
+      {"id": "attack-nap", "sourceType": "attack", "sourceName": "Nap", "trigger": "attack", "cost": ["Colorless"], "conditions": [], "effects": [{"op": "heal_damage", "target": "self", "amount": 20, "value": "", "conditions": [], "parameters": []}]},
+      {"id": "attack-seed-bomb", "sourceType": "attack", "sourceName": "Seed Bomb", "trigger": "attack", "cost": ["Grass", "Colorless"], "conditions": [], "effects": [{"op": "deal_damage", "target": "opponent.active", "amount": 20, "value": "", "conditions": [], "parameters": []}]}
+    ],
+    "unsupportedText": [],
+    "notes": "Nap heals only the attacking Seedot; Seed Bomb deals its printed attack damage."
+  },
+  {
+    "schemaVersion": 1,
+    "cardId": "me1-134",
+    "sourceTextHash": "11740ebf86ebacd89a6eabb5e8fa37099972277148ee44ed1f5b0a6092e9dab5",
+    "generatedBy": {"provider": "openai-codex", "model": "gpt-5", "responseId": "", "generatedAt": "2026-10-05T08:30:00Z"},
+    "confidence": "high",
+    "rules": [
+      {"id": "attack-razor-leaf", "sourceType": "attack", "sourceName": "Razor Leaf", "trigger": "attack", "cost": ["Grass", "Grass"], "conditions": [], "effects": [{"op": "deal_damage", "target": "opponent.active", "amount": 60, "value": "", "conditions": [], "parameters": []}]}
+    ],
+    "unsupportedText": [],
+    "notes": "Razor Leaf deals 60 attack damage."
+  },
+  {
+    "schemaVersion": 1,
+    "cardId": "me1-138",
+    "sourceTextHash": "2fcfd831ab0595d3d28648174dec538cdee520392486d043448f6d6ce068d3c7",
+    "generatedBy": {"provider": "openai-codex", "model": "gpt-5", "responseId": "", "generatedAt": "2026-10-05T08:30:00Z"},
+    "confidence": "high",
+    "rules": [
+      {"id": "attack-stampede", "sourceType": "attack", "sourceName": "Stampede", "trigger": "attack", "cost": ["Colorless"], "conditions": [], "effects": [{"op": "deal_damage", "target": "opponent.active", "amount": 10, "value": "", "conditions": [], "parameters": []}]},
+      {"id": "attack-combustion", "sourceType": "attack", "sourceName": "Combustion", "trigger": "attack", "cost": ["Fire", "Colorless"], "conditions": [], "effects": [{"op": "deal_damage", "target": "opponent.active", "amount": 20, "value": "", "conditions": [], "parameters": []}]}
+    ],
+    "unsupportedText": [],
+    "notes": "Both attacks deal their printed attack damage."
+  },
+  {
+    "schemaVersion": 1,
+    "cardId": "me1-139",
+    "sourceTextHash": "32534e0e5fe6497e668d9843c4f09b28c8abd79651e9a213cc1039598160e3c9",
+    "generatedBy": {"provider": "openai-codex", "model": "gpt-5", "responseId": "", "generatedAt": "2026-10-05T08:30:00Z"},
+    "confidence": "high",
+    "rules": [
+      {"id": "attack-flare", "sourceType": "attack", "sourceName": "Flare", "trigger": "attack", "cost": ["Fire", "Colorless"], "conditions": [], "effects": [{"op": "deal_damage", "target": "opponent.active", "amount": 30, "value": "", "conditions": [], "parameters": []}]}
+    ],
+    "unsupportedText": [],
+    "notes": "Flare deals 30 attack damage."
+  },
+  {
+    "schemaVersion": 1,
+    "cardId": "me1-14",
+    "sourceTextHash": "38474e6ceed699d19d3fc2e58bbdb112f7dc2f2247a895428e64982fcca109bd",
+    "generatedBy": {"provider": "openai-codex", "model": "gpt-5", "responseId": "", "generatedAt": "2026-10-05T08:30:00Z"},
+    "confidence": "high",
+    "rules": [
+      {"id": "attack-pound", "sourceType": "attack", "sourceName": "Pound", "trigger": "attack", "cost": ["Grass"], "conditions": [], "effects": [{"op": "deal_damage", "target": "opponent.active", "amount": 30, "value": "", "conditions": [], "parameters": []}]},
+      {"id": "attack-low-kick", "sourceType": "attack", "sourceName": "Low Kick", "trigger": "attack", "cost": ["Grass", "Colorless"], "conditions": [], "effects": [{"op": "deal_damage", "target": "opponent.active", "amount": 50, "value": "", "conditions": [], "parameters": []}]}
+    ],
+    "unsupportedText": [],
+    "notes": "Both attacks deal their printed attack damage."
+  },
+  {
+    "schemaVersion": 1,
+    "cardId": "me1-140",
+    "sourceTextHash": "3ab86c8ff4dca9d20a449fa0d1ab4112cd41a6d688b7f2f043ee4568ecb41b60",
+    "generatedBy": {"provider": "openai-codex", "model": "gpt-5", "responseId": "", "generatedAt": "2026-10-05T08:30:00Z"},
+    "confidence": "high",
+    "rules": [
+      {"id": "attack-beat", "sourceType": "attack", "sourceName": "Beat", "trigger": "attack", "cost": ["Water"], "conditions": [], "effects": [{"op": "deal_damage", "target": "opponent.active", "amount": 10, "value": "", "conditions": [], "parameters": []}]},
+      {"id": "attack-icy-snow", "sourceType": "attack", "sourceName": "Icy Snow", "trigger": "attack", "cost": ["Water", "Water"], "conditions": [], "effects": [{"op": "deal_damage", "target": "opponent.active", "amount": 30, "value": "", "conditions": [], "parameters": []}]}
+    ],
+    "unsupportedText": [],
+    "notes": "Both attacks deal their printed attack damage."
+  },
+  {
+    "schemaVersion": 1,
+    "cardId": "me1-143",
+    "sourceTextHash": "3701c2075b9bcbd33752ba2497f602dd81e2fcab08adb6f25dee2959e40f39ad",
+    "generatedBy": {"provider": "openai-codex", "model": "gpt-5", "responseId": "", "generatedAt": "2026-10-05T08:30:00Z"},
+    "confidence": "high",
+    "rules": [
+      {
+        "id": "attack-double-scratch", "sourceType": "attack", "sourceName": "Double Scratch", "trigger": "attack", "cost": ["Colorless"], "conditions": [],
+        "effects": [
+          {"op": "flip_coin", "target": "coin", "amount": 2, "value": "", "conditions": [], "parameters": []},
+          {"op": "deal_damage", "target": "opponent.active", "amount": 10, "value": "multiply", "conditions": [], "parameters": [{"key": "multiplier", "value": "coin.heads"}]}
+        ]
+      }
+    ],
+    "unsupportedText": [],
+    "notes": "Two seeded coin flips resolve together; the attack deals 10 damage per heads."
+  },
+  {
+    "schemaVersion": 1,
+    "cardId": "me1-154",
+    "sourceTextHash": "4d477ac7e2beb4248daed59f5ceb70a649e0f746e5f8a07b76702cee21392a07",
+    "generatedBy": {"provider": "openai-codex", "model": "gpt-5", "responseId": "", "generatedAt": "2026-10-05T08:30:00Z"},
+    "confidence": "high",
+    "rules": [
+      {"id": "attack-light-punch", "sourceType": "attack", "sourceName": "Light Punch", "trigger": "attack", "cost": ["Colorless"], "conditions": [], "effects": [{"op": "deal_damage", "target": "opponent.active", "amount": 10, "value": "", "conditions": [], "parameters": []}]},
+      {"id": "attack-flop", "sourceType": "attack", "sourceName": "Flop", "trigger": "attack", "cost": ["Colorless", "Colorless"], "conditions": [], "effects": [{"op": "deal_damage", "target": "opponent.active", "amount": 20, "value": "", "conditions": [], "parameters": []}]}
+    ],
+    "unsupportedText": [],
+    "notes": "Both attacks deal their printed attack damage."
+  },
+  {
+    "schemaVersion": 1,
+    "cardId": "me1-16",
+    "sourceTextHash": "ead7d55ed6adf9753e4bf592d285a32b684e29523f00a97d47b708a6fab543ff",
+    "generatedBy": {"provider": "openai-codex", "model": "gpt-5", "responseId": "", "generatedAt": "2026-10-05T08:30:00Z"},
+    "confidence": "high",
+    "rules": [
+      {"id": "attack-scratch", "sourceType": "attack", "sourceName": "Scratch", "trigger": "attack", "cost": ["Colorless"], "conditions": [], "effects": [{"op": "deal_damage", "target": "opponent.active", "amount": 20, "value": "", "conditions": [], "parameters": []}]}
+    ],
+    "unsupportedText": [],
+    "notes": "Scratch deals 20 attack damage."
+  }
+]
