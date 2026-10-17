@@ -199,6 +199,74 @@ def test_risky_ruins_ignores_darkness_and_out_of_turn_bench_entries():
     assert next(item for item in session.players[0]["bench"] if item["uid"] == colorless["uid"])["damage"] == 0
 
 
+def test_premium_power_pro_only_boosts_fighting_attacks_for_the_current_turn():
+    programs = json.loads(Path("rules/generated/standard-2026-10-17-batch-06.json").read_text(encoding="utf-8"))
+    program = next(item for item in programs if item["cardId"] == "me1-124")
+    session = ArenaSession(
+        player_name="Player",
+        player_deck=_deck("player"),
+        opponent_name="Opponent",
+        opponent_deck=_deck("opponent"),
+        seed=13,
+    )
+    _finish_setup(session)
+    session.current_player = 0
+    source = {
+        "uid": "premium-power-pro",
+        "card": {
+            **_card("me1-124", "Premium Power Pro", "Trainer", subtypes=["Item"]),
+            "ruleProgram": program,
+            "ruleVersion": None,
+        },
+    }
+    play_rule = next(rule for rule in program["rules"] if rule["trigger"] == "play_card")
+    session._execute_rule(0, source, play_rule)
+    attacker = session.players[0]["active"]
+    defender = session.players[1]["active"]
+
+    attacker["card"]["types"] = ["Fighting"]
+    assert session._modified_attack_damage(0, attacker, defender, 10) == 40
+    benched_target = {**defender, "uid": "benched-target"}
+    assert session._modified_attack_damage(0, attacker, benched_target, 10) == 10
+    attacker["card"]["types"] = ["Grass"]
+    assert session._modified_attack_damage(0, attacker, defender, 10) == 10
+    attacker["card"]["types"] = ["Fighting"]
+    session.turn_number += 1
+    assert session._modified_attack_damage(0, attacker, defender, 10) == 10
+
+
+def test_switch_exposes_player_targets_while_repel_keeps_the_opponents_choice():
+    programs = json.loads(Path("rules/generated/standard-2026-10-17-batch-06.json").read_text(encoding="utf-8"))
+    by_id = {program["cardId"]: program for program in programs}
+    session = ArenaSession(
+        player_name="Player",
+        player_deck=_deck("player"),
+        opponent_name="Opponent",
+        opponent_deck=_deck("opponent"),
+        seed=14,
+    )
+    _finish_setup(session)
+    session.current_player = 0
+    for card_id, name in (("me1-130", "Switch"), ("me1-126", "Repel")):
+        session.players[0]["hand"].append({
+            "uid": f"trainer-{card_id}",
+            "card": {
+                **_card(card_id, name, "Trainer", subtypes=["Item"]),
+                "ruleProgram": by_id[card_id],
+                "ruleVersion": None,
+            },
+        })
+
+    actions = session._trainer_actions(0)
+    switch_actions = [action for action in actions if action["cardUid"] == "trainer-me1-130"]
+    repel_actions = [action for action in actions if action["cardUid"] == "trainer-me1-126"]
+    assert {action["targetUid"] for action in switch_actions} == {
+        pokemon["uid"] for pokemon in session.players[0]["bench"]
+    }
+    assert len(repel_actions) == 1
+    assert "targetUid" not in repel_actions[0]
+
+
 def test_player_chooses_replacement_after_opponent_knockout():
     session = ArenaSession(
         player_name="Player",

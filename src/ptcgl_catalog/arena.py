@@ -26,7 +26,7 @@ from .optimization import optimize_deck
 from .rule_engine import executable_effects, matching_rule
 
 
-ARENA_VERSION = "arena-0.4.1"
+ARENA_VERSION = "arena-0.4.2"
 AI_POLICY_VERSION = "simple-ai-0.1.0"
 MATCH_CLOCK_SECONDS = 20 * 60
 ARENA_SUPPORTED_OPERATIONS = {
@@ -624,6 +624,8 @@ class ArenaSession:
             expires_after = self.turn_number + 1
         elif duration == "during_self_next_turn":
             expires_after = self.turn_number + 2
+        elif duration == "turn":
+            expires_after = self.turn_number
         self.modifiers.append({
             "owner": player_index,
             "sourceUid": source["uid"],
@@ -1078,6 +1080,13 @@ class ArenaSession:
                 continue
             if field == "self.attacks.damage" and modifier["owner"] == attacker_index and modifier["sourceUid"] == source["uid"] and self.turn_number > modifier["createdTurn"]:
                 damage += int(effect.get("amount") or 0)
+            elif (
+                field == "self.in_play.fighting_pokemon.attacks.damage"
+                and modifier["owner"] == attacker_index
+                and "Fighting" in source["card"]["types"]
+                and target is self.players[target_index].get("active")
+            ):
+                damage += int(effect.get("amount") or 0)
             elif field == "opponent.active.attacks.damage" and modifier["owner"] == target_index and modifier["targetUid"] == source["uid"]:
                 damage += int(effect.get("amount") or 0)
             elif field == "chosen_self_pokemon.damage_received" and modifier["owner"] == target_index and modifier["targetUid"] == target["uid"]:
@@ -1209,10 +1218,18 @@ class ArenaSession:
                 if not executable_effects(card["ruleProgram"], rule["id"], self._rule_context(player_index, source=item), seed=self.seed):
                     continue
                 targets_self = any(str(effect.get("target", "")).startswith("chosen_self_pokemon") for effect in rule.get("effects", []))
-                switches_opponent = any(effect.get("op") == "switch_active" and effect.get("target") == "opponent" for effect in rule.get("effects", []))
+                switch_effect = next((effect for effect in rule.get("effects", []) if effect.get("op") == "switch_active"), None)
+                switches_opponent = bool(switch_effect and switch_effect.get("target") == "opponent")
+                switches_self = bool(switch_effect and switch_effect.get("target") == "self")
                 moves_energy = any(effect.get("op") == "move_energy" and effect.get("target") == "self.in_play" for effect in rule.get("effects", []))
-                if switches_opponent:
+                switch_parameters = self._parameters(switch_effect or {})
+                if switches_opponent and switch_parameters.get("selection") != "opponent_choice":
                     for target in opponent["bench"]:
+                        actions.append({"type": "play_trainer", "cardUid": item["uid"], "targetUid": target["uid"], "ruleId": rule["id"], "label": f"Play {card['name']} → {target['card']['name']}"})
+                elif switches_opponent:
+                    actions.append({"type": "play_trainer", "cardUid": item["uid"], "ruleId": rule["id"], "label": f"Play {card['name']}"})
+                elif switches_self:
+                    for target in player["bench"]:
                         actions.append({"type": "play_trainer", "cardUid": item["uid"], "targetUid": target["uid"], "ruleId": rule["id"], "label": f"Play {card['name']} → {target['card']['name']}"})
                 elif targets_self or moves_energy:
                     for target in self._in_play(player):

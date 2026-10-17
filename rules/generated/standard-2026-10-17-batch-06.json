@@ -1,0 +1,204 @@
+[
+  {
+    "schemaVersion": 1,
+    "cardId": "me1-124",
+    "sourceTextHash": "0644852f06ef73437a55d6c64debe00b5833e664d2d57e3775ae232afc5c6194",
+    "generatedBy": {"provider": "openai-codex", "model": "gpt-5", "responseId": "", "generatedAt": "2026-10-17T18:40:00Z"},
+    "confidence": "high",
+    "rules": [
+      {
+        "id": "item-premium-power-pro", "sourceType": "trainer_rule", "sourceName": "Premium Power Pro", "trigger": "play_card", "cost": [], "conditions": [],
+        "effects": [
+          {"op": "create_modifier", "target": "self.in_play.fighting_pokemon.attacks.damage", "amount": 30, "value": "add", "conditions": [], "parameters": [{"key": "duration", "value": "turn"}, {"key": "timing", "value": "before_weakness_resistance"}, {"key": "target", "value": "opponent.active"}]}
+        ]
+      },
+      {
+        "id": "rule-item-limit", "sourceType": "trainer_rule", "sourceName": "Item rule", "trigger": "continuous", "cost": [], "conditions": [],
+        "effects": [{"op": "create_modifier", "target": "self.turn.item_plays", "amount": 0, "value": "unlimited", "conditions": [], "parameters": [{"key": "duration", "value": "turn"}]}]
+      }
+    ],
+    "unsupportedText": [],
+    "notes": "Adds 30 attack damage for every Fighting Pokémon controlled by the player for the current turn, before Weakness and Resistance, and only when attacking the opponent's Active Pokémon."
+  },
+  {
+    "schemaVersion": 1,
+    "cardId": "me1-126",
+    "sourceTextHash": "5ad2fa423daa68a8fc6809fa12461c50f1daaefbb96061d3ddf74b491a82dfcc",
+    "generatedBy": {"provider": "openai-codex", "model": "gpt-5", "responseId": "", "generatedAt": "2026-10-17T18:40:00Z"},
+    "confidence": "high",
+    "rules": [
+      {
+        "id": "item-repel", "sourceType": "trainer_rule", "sourceName": "Repel", "trigger": "play_card", "cost": [], "conditions": [],
+        "effects": [{"op": "switch_active", "target": "opponent", "amount": 1, "value": "required", "conditions": [], "parameters": [{"key": "selection", "value": "opponent_choice"}]}]
+      },
+      {
+        "id": "rule-item-limit", "sourceType": "trainer_rule", "sourceName": "Item rule", "trigger": "continuous", "cost": [], "conditions": [],
+        "effects": [{"op": "create_modifier", "target": "self.turn.item_plays", "amount": 0, "value": "unlimited", "conditions": [], "parameters": [{"key": "duration", "value": "turn"}]}]
+      }
+    ],
+    "unsupportedText": [],
+    "notes": "The opponent chooses a Benched Pokémon to become Active; the previous Active moves to the Bench."
+  },
+  {
+    "schemaVersion": 1,
+    "cardId": "me1-130",
+    "sourceTextHash": "0c0114d96ed144b9a21e9b71dc235c8c815c86e9ab09b949c63546d483762ffb",
+    "generatedBy": {"provider": "openai-codex", "model": "gpt-5", "responseId": "", "generatedAt": "2026-10-17T18:40:00Z"},
+    "confidence": "high",
+    "rules": [
+      {
+        "id": "item-switch", "sourceType": "trainer_rule", "sourceName": "Switch", "trigger": "play_card", "cost": [], "conditions": [],
+        "effects": [{"op": "switch_active", "target": "self", "amount": 1, "value": "required", "conditions": [], "parameters": [{"key": "selection", "value": "player_choice"}]}]
+      },
+      {
+        "id": "rule-item-limit", "sourceType": "trainer_rule", "sourceName": "Item rule", "trigger": "continuous", "cost": [], "conditions": [],
+        "effects": [{"op": "create_modifier", "target": "self.turn.item_plays", "amount": 0, "value": "unlimited", "conditions": [], "parameters": [{"key": "duration", "value": "turn"}]}]
+      }
+    ],
+    "unsupportedText": [],
+    "notes": "The player chooses one Benched Pokémon to become Active; the previous Active moves to the Bench."
+  },
+  {
+    "schemaVersion": 1,
+    "cardId": "me1-133",
+    "sourceTextHash": "db825647b886970bde7f438ed73b0ab557733d4361d8eb657ad330bd194d8367",
+    "generatedBy": {"provider": "openai-codex", "model": "gpt-5", "responseId": "", "generatedAt": "2026-10-17T18:40:00Z"},
+    "confidence": "high",
+    "rules": [
+      {
+        "id": "attack-bind-down", "sourceType": "attack", "sourceName": "Bind Down", "trigger": "attack", "cost": ["Grass"], "conditions": [],
+        "effects": [
+          {"op": "deal_damage", "target": "opponent.active", "amount": 10, "value": "", "conditions": [], "parameters": []},
+          {"op": "create_modifier", "target": "opponent.active.retreat_allowed", "amount": 0, "value": "false", "conditions": [], "parameters": [{"key": "duration", "value": "during_opponent_next_turn"}, {"key": "source", "value": "attack_effect"}]}
+        ]
+      }
+    ],
+    "unsupportedText": [],
+    "notes": "The retreat lock follows the Defending Pokémon that received the attack and lasts through the opponent's next turn."
+  },
+  {
+    "schemaVersion": 1,
+    "cardId": "me1-136",
+    "sourceTextHash": "9db2e8881a01b184ffad7cba4dddeb9d62125cdd92ddba3f0da8e8b7354404ec",
+    "generatedBy": {"provider": "openai-codex", "model": "gpt-5", "responseId": "", "generatedAt": "2026-10-17T18:40:00Z"},
+    "confidence": "high",
+    "rules": [
+      {
+        "id": "ability-fermented-juice", "sourceType": "ability", "sourceName": "Fermented Juice", "trigger": "activate_ability", "cost": [],
+        "conditions": [{"field": "self.attached_energy.types", "operator": "contains", "value": "Grass"}],
+        "effects": [{"op": "heal_damage", "target": "chosen_self_pokemon", "amount": 30, "value": "", "conditions": [], "parameters": [{"key": "selection", "value": "player_choice"}]}]
+      },
+      {
+        "id": "attack-rollout", "sourceType": "attack", "sourceName": "Rollout", "trigger": "attack", "cost": ["Grass", "Colorless"], "conditions": [],
+        "effects": [{"op": "deal_damage", "target": "opponent.active", "amount": 30, "value": "", "conditions": [], "parameters": []}]
+      }
+    ],
+    "unsupportedText": [],
+    "notes": "Fermented Juice is offered once per turn only while Shuckle has Grass Energy attached and heals the chosen friendly Pokémon; Rollout deals printed damage."
+  },
+  {
+    "schemaVersion": 1,
+    "cardId": "me1-150",
+    "sourceTextHash": "034cc6632be17effd252621477d57f66d492631de14daf147cf471df619018a5",
+    "generatedBy": {"provider": "openai-codex", "model": "gpt-5", "responseId": "", "generatedAt": "2026-10-17T18:40:00Z"},
+    "confidence": "high",
+    "rules": [
+      {
+        "id": "attack-welcoming-tail", "sourceType": "attack", "sourceName": "Welcoming Tail", "trigger": "attack", "cost": ["Colorless", "Colorless"], "conditions": [],
+        "effects": [
+          {"op": "deal_damage", "target": "opponent.active", "amount": 40, "value": "", "conditions": [], "parameters": []},
+          {"op": "deal_damage", "target": "opponent.active", "amount": 200, "value": "bonus", "conditions": [{"field": "self.prizes", "operator": "equals", "value": 6}], "parameters": []}
+        ]
+      },
+      {
+        "id": "attack-skull-bash", "sourceType": "attack", "sourceName": "Skull Bash", "trigger": "attack", "cost": ["Metal", "Metal", "Colorless", "Colorless"], "conditions": [],
+        "effects": [{"op": "deal_damage", "target": "opponent.active", "amount": 140, "value": "", "conditions": [], "parameters": []}]
+      }
+    ],
+    "unsupportedText": [],
+    "notes": "Welcoming Tail deals 240 only at exactly six remaining Prize cards and 40 otherwise; Skull Bash deals printed damage."
+  },
+  {
+    "schemaVersion": 1,
+    "cardId": "me1-151",
+    "sourceTextHash": "d3d7e98d12cde5d937469a0f8b675c19a7169e3e6dd0eefacd7338b0025590e9",
+    "generatedBy": {"provider": "openai-codex", "model": "gpt-5", "responseId": "", "generatedAt": "2026-10-17T18:40:00Z"},
+    "confidence": "high",
+    "rules": [
+      {
+        "id": "attack-pluck", "sourceType": "attack", "sourceName": "Pluck", "trigger": "attack", "cost": ["Colorless"], "conditions": [],
+        "effects": [
+          {"op": "discard_cards", "target": "opponent.active.attached_pokemon_tools", "amount": 0, "value": "all", "conditions": [], "parameters": [{"key": "timing", "value": "before_damage"}]},
+          {"op": "deal_damage", "target": "opponent.active", "amount": 10, "value": "", "conditions": [], "parameters": []}
+        ]
+      }
+    ],
+    "unsupportedText": [],
+    "notes": "Every Pokémon Tool on the opponent's Active Pokémon is discarded before the 10 attack damage is resolved."
+  },
+  {
+    "schemaVersion": 1,
+    "cardId": "me1-153",
+    "sourceTextHash": "790df4727ad41a1981c30f639543cdf8ab6d2cb16c4a8e8dc5cdff0306627231",
+    "generatedBy": {"provider": "openai-codex", "model": "gpt-5", "responseId": "", "generatedAt": "2026-10-17T18:40:00Z"},
+    "confidence": "high",
+    "rules": [
+      {
+        "id": "ability-evidence-gathering", "sourceType": "ability", "sourceName": "Evidence Gathering", "trigger": "activate_ability", "cost": [], "conditions": [],
+        "effects": [{"op": "swap_cards", "target": "self.hand", "amount": 1, "value": "with_self.deck.top", "conditions": [], "parameters": [{"key": "selection", "value": "player_choice"}, {"key": "usage", "value": "once_per_turn"}]}]
+      },
+      {
+        "id": "attack-bite", "sourceType": "attack", "sourceName": "Bite", "trigger": "attack", "cost": ["Colorless", "Colorless"], "conditions": [],
+        "effects": [{"op": "deal_damage", "target": "opponent.active", "amount": 50, "value": "", "conditions": [], "parameters": []}]
+      }
+    ],
+    "unsupportedText": [],
+    "notes": "Evidence Gathering exchanges one selected hand card with the top deck card once per turn; Arena's current deterministic choice policy selects the first legal hand card."
+  },
+  {
+    "schemaVersion": 1,
+    "cardId": "me1-168",
+    "sourceTextHash": "4c278e10c10be1be1315039d31814c3fc8d23231be580f428fd1a10e918ead02",
+    "generatedBy": {"provider": "openai-codex", "model": "gpt-5", "responseId": "", "generatedAt": "2026-10-17T18:40:00Z"},
+    "confidence": "high",
+    "rules": [
+      {
+        "id": "item-fighting-gong", "sourceType": "trainer_rule", "sourceName": "Fighting Gong", "trigger": "play_card", "cost": [], "conditions": [],
+        "effects": [
+          {"op": "choose_cards", "target": "self.deck", "amount": 1, "value": "basic_fighting_energy_or_basic_fighting_pokemon", "conditions": [], "parameters": [{"key": "selection_id", "value": "fighting_gong_card"}, {"key": "reveal", "value": "true"}]},
+          {"op": "move_cards", "target": "self.hand", "amount": 1, "value": "selected", "conditions": [], "parameters": [{"key": "source", "value": "self.deck"}, {"key": "selection_id", "value": "fighting_gong_card"}]},
+          {"op": "shuffle_cards", "target": "self.deck", "amount": 0, "value": "all", "conditions": [], "parameters": []}
+        ]
+      },
+      {
+        "id": "rule-item-limit", "sourceType": "trainer_rule", "sourceName": "Item rule", "trigger": "continuous", "cost": [], "conditions": [],
+        "effects": [{"op": "create_modifier", "target": "self.turn.item_plays", "amount": 0, "value": "unlimited", "conditions": [], "parameters": [{"key": "duration", "value": "turn"}]}]
+      }
+    ],
+    "unsupportedText": [],
+    "notes": "Searches for the union of Basic Fighting Energy and Basic Fighting Pokémon, reveals the deterministic selection, puts it into hand, and shuffles."
+  },
+  {
+    "schemaVersion": 1,
+    "cardId": "me1-169",
+    "sourceTextHash": "dbe74df77c197a0222127a15e45188bd60942b00a3c9b540ad72d5ee58e1d434",
+    "generatedBy": {"provider": "openai-codex", "model": "gpt-5", "responseId": "", "generatedAt": "2026-10-17T18:40:00Z"},
+    "confidence": "high",
+    "rules": [
+      {
+        "id": "supporter-lillies-determination", "sourceType": "trainer_rule", "sourceName": "Lillie's Determination", "trigger": "play_card", "cost": [], "conditions": [],
+        "effects": [
+          {"op": "shuffle_zone_into_deck", "target": "self.hand", "amount": 0, "value": "all", "conditions": [], "parameters": [{"key": "destination", "value": "self.deck"}]},
+          {"op": "draw_cards", "target": "self", "amount": 8, "value": "", "conditions": [{"field": "self.prizes", "operator": "equals", "value": 6}], "parameters": []},
+          {"op": "draw_cards", "target": "self", "amount": 6, "value": "", "conditions": [{"field": "self.prizes", "operator": "not_equals", "value": 6}], "parameters": []}
+        ]
+      },
+      {
+        "id": "rule-supporter-limit", "sourceType": "trainer_rule", "sourceName": "Supporter rule", "trigger": "continuous", "cost": [], "conditions": [],
+        "effects": [{"op": "create_modifier", "target": "self.turn.supporter_plays", "amount": 1, "value": "maximum", "conditions": [], "parameters": [{"key": "duration", "value": "turn"}]}]
+      }
+    ],
+    "unsupportedText": [],
+    "notes": "The entire hand is shuffled into the deck before drawing; exactly six remaining Prizes draws eight cards, otherwise six."
+  }
+]
